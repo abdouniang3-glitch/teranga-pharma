@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Paramètres</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">⚙️ Paramètres & Administration</h1></div>
+    </header>
+    <main class="page-content">
+
+      <!-- Reminder backup -->
+      <div id="backup-reminder"></div>
+
+      <!-- Section 1 : Pharmacie -->
+      <div class="card mb-4">
+        <div class="card-header" style="background:linear-gradient(135deg,#042a1a,#065c37);color:#fff">
+          <span class="card-title" style="color:#fff">🏥 Informations de la pharmacie</span>
+        </div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Nom de la pharmacie</label><input class="form-control" id="pNom" placeholder="Ex: TERANGA PHARMA"></div>
+            <div class="form-group"><label class="form-label">Numéro d'autorisation / agrément</label><input class="form-control" id="pAgrement" placeholder="Ex: AUTH-2024-001"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Adresse</label><input class="form-control" id="pAdresse" placeholder="Quartier, Ville"></div>
+            <div class="form-group"><label class="form-label">Téléphone</label><input class="form-control" id="pTel" placeholder="+221 33 000 00 00"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Email</label><input class="form-control" id="pEmail" type="email" placeholder="pharmacie@exemple.sn"></div>
+            <div class="form-group"><label class="form-label">Pharmacien titulaire</label><input class="form-control" id="pTitulaire" placeholder="Dr Nom Prénom"></div>
+          </div>
+          <div class="form-group"><label class="form-label">Message de pied de reçu</label><input class="form-control" id="pFooter" placeholder="Ex: Merci de votre confiance ! Ordonnances conservées pendant 3 ans."></div>
+          <button class="btn btn-primary" onclick="sauvegarderPharmacie()">💾 Enregistrer les informations</button>
+        </div>
+      </div>
+
+      <!-- Section 2 : Sauvegarde & Restauration -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">💾 Sauvegarde & Restauration des données</span>
+          <span id="backupStats" class="text-sm text-muted"></span>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-warning mb-3">
+            ⚠️ <strong>Important :</strong> Sauvegardez vos données régulièrement ! En cas de réinstallation ou changement de navigateur, toutes les données seront perdues sans backup.
+          </div>
+          <div class="grid-3 mb-4">
+            <div style="background:var(--bg);border-radius:10px;padding:18px;text-align:center">
+              <div style="font-size:32px;margin-bottom:8px">📥</div>
+              <div style="font-weight:700;font-size:14px;margin-bottom:4px">Exporter sauvegarde</div>
+              <div class="text-sm text-muted mb-3">Télécharger un fichier JSON avec toutes les données</div>
+              <button class="btn btn-primary btn-sm" onclick="Backup.exportJSON()">💾 Exporter JSON</button>
+            </div>
+            <div style="background:var(--bg);border-radius:10px;padding:18px;text-align:center">
+              <div style="font-size:32px;margin-bottom:8px">📤</div>
+              <div style="font-weight:700;font-size:14px;margin-bottom:4px">Restaurer sauvegarde</div>
+              <div class="text-sm text-muted mb-3">Importer un fichier JSON de backup</div>
+              <label class="btn btn-outline btn-sm" style="cursor:pointer">📂 Choisir fichier<input type="file" accept=".json" style="display:none" onchange="Backup.importJSON(this.files[0], ()=>window.location.reload())"></label>
+            </div>
+            <div style="background:var(--bg);border-radius:10px;padding:18px;text-align:center">
+              <div style="font-size:32px;margin-bottom:8px">📊</div>
+              <div style="font-weight:700;font-size:14px;margin-bottom:4px">Exporter CSV ventes</div>
+              <div class="text-sm text-muted mb-3">Exporter les ventes pour Excel</div>
+              <button class="btn btn-outline btn-sm" onclick="Backup.exportCSV('ventes','ventes-teranga.csv')">📊 Exporter CSV</button>
+            </div>
+          </div>
+          <div id="backupDetail" style="background:var(--bg-alt);border-radius:8px;padding:14px;font-size:13px"></div>
+        </div>
+      </div>
+
+      <!-- Section 3 : Base médicaments DPML -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">💊 Base de médicaments DPML Sénégal</span>
+          <span class="badge badge-primary" id="medCount">0 médicaments</span>
+        </div>
+        <div class="card-body">
+          <div class="grid-2 mb-3">
+            <div>
+              <p class="text-sm text-muted mb-2">La base DPML inclut <strong>100+ médicaments essentiels</strong> classifiés selon les standards de la Direction de la Pharmacie et du Médicament du Sénégal.</p>
+              <div id="dpmlStats" style="font-size:12px;color:var(--text-muted)"></div>
+            </div>
+            <div>
+              <div id="classesList" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="chargerDPML()">🔄 Recharger la base DPML</button>
+            <button class="btn btn-outline" onclick="Modal.open('mImportMed')">📥 Importer catalogue custom</button>
+            <button class="btn btn-outline" onclick="exporterCatalogue()">📤 Exporter catalogue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4 : Scanner code-barres -->
+      <div class="card mb-4">
+        <div class="card-header"><span class="card-title">📷 Scanner code-barres</span></div>
+        <div class="card-body">
+          <div class="grid-2">
+            <div>
+              <p class="text-sm text-muted mb-3">Associez des codes EAN/barres à vos médicaments pour accélérer les ventes au comptoir. Le scanner utilise la caméra de l'appareil.</p>
+              <div id="scannerSupport" class="alert alert-info mb-3" style="font-size:12px"></div>
+              <button class="btn btn-primary" onclick="testerScanner()">📷 Tester le scanner</button>
+            </div>
+            <div>
+              <label class="form-label">Associer un code EAN à un médicament</label>
+              <div style="display:flex;gap:8px;margin-bottom:8px">
+                <select class="form-control" id="scanMed" style="flex:2"></select>
+                <input class="form-control" id="scanCode" placeholder="Code EAN" style="flex:1;font-family:monospace">
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="associerEAN()">🔗 Associer</button>
+              <button class="btn btn-outline btn-sm" onclick="Scanner.open(r=>{ if(r.code) document.getElementById('scanCode').value=r.code; })">📷 Scanner</button>
+              <div style="margin-top:14px">
+                <div class="text-sm text-muted mb-2">Médicaments avec code EAN :</div>
+                <div id="eanList" style="font-size:12px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5 : Configuration commerciale -->
+      <div class="card mb-4">
+        <div class="card-header"><span class="card-title">💰 Configuration commerciale</span></div>
+        <div class="card-body">
+          <div class="form-row mb-3">
+            <div class="form-group">
+              <label class="form-label">Marge par défaut (%)</label>
+              <input type="number" class="form-control" id="cfgMarge" value="30" min="0" max="100">
+              <div class="text-xs text-muted mt-1">Appliquée automatiquement au calcul des prix de vente (RG5)</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Délai alerte crédit (jours)</label>
+              <input type="number" class="form-control" id="cfgCredit" value="30" min="1">
+              <div class="text-xs text-muted mt-1">Nombre de jours avant signalement crédit non remboursé (RG28)</div>
+            </div>
+          </div>
+          <div class="form-row mb-3">
+            <div class="form-group">
+              <label class="form-label">Délai alerte péremption (jours)</label>
+              <input type="number" class="form-control" id="cfgPerem" value="90" min="30">
+              <div class="text-xs text-muted mt-1">Alerte déclenchée si péremption inférieure à ce délai (RG8)</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Devise</label>
+              <select class="form-control" id="cfgDevise">
+                <option value="FCFA" selected>FCFA (Franc CFA)</option>
+                <option value="GNF">GNF (Guinée)</option>
+                <option value="XOF">XOF (UEMOA)</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="sauvegarderConfig()">💾 Enregistrer la configuration</button>
+        </div>
+      </div>
+
+
+      <!-- Section SMS & Notifications -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">📱 SMS & Notifications clients</span>
+          <span id="smsStatBadge" class="badge badge-neutral">Mode démo</span>
+        </div>
+        <div class="card-body">
+          <div class="grid-2 mb-4">
+            <div>
+              <div class="alert alert-info text-sm mb-3">
+                📱 Envoyez des SMS automatiques à vos clients : rappels de crédit, disponibilité médicaments, alertes stock. Compatible <strong>Wave, Orange Money, Infobip, Twilio</strong>.
+              </div>
+              <div class="form-group"><label class="form-label">Fournisseur SMS</label>
+                <select class="form-control" id="smsProvider">
+                  <option value="demo">🎭 Mode démo (simulation)</option>
+                  <option value="infobip">Infobip (recommandé)</option>
+                  <option value="twilio">Twilio</option>
+                  <option value="orange">Orange SMS API</option>
+                  <option value="generic">API générique REST</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">Clé API</label>
+                <input class="form-control" id="smsApiKey" type="password" placeholder="Votre clé API">
+              </div>
+              <div class="form-group"><label class="form-label">Expéditeur (nom ou numéro)</label>
+                <input class="form-control" id="smsSender" placeholder="Ex: TPHARMA ou +221770000000">
+              </div>
+              <div class="form-group"><label class="form-label">Téléphone responsable stock</label>
+                <input class="form-control" id="smsRespStock" placeholder="+221 77 000 00 00">
+              </div>
+              <button class="btn btn-primary" onclick="sauvegarderSMS()">💾 Enregistrer config SMS</button>
+            </div>
+            <div>
+              <div style="font-weight:600;font-size:14px;margin-bottom:12px">📊 Statistiques SMS</div>
+              <div id="smsStats" style="font-size:13px"></div>
+              <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px">
+                <div style="font-weight:600;font-size:13px;margin-bottom:10px">🚀 Envois rapides</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <button class="btn btn-outline btn-sm" onclick="SMS.envoyerRappelsCredits()">💳 Rappels crédits en retard</button>
+                  <button class="btn btn-outline btn-sm" onclick="SMS.envoyerAlertesStock()">📦 Alertes stocks critiques</button>
+                  <button class="btn btn-outline btn-sm" onclick="Modal.open('mSMSManuel')">✏️ SMS manuel</button>
+                </div>
+              </div>
+              <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px">
+                <div style="font-weight:600;font-size:13px;margin-bottom:8px">📜 Derniers SMS envoyés</div>
+                <div id="smsLogs" style="font-size:12px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 6 : Réinitialisation -->
+      <div class="card mb-4" style="border-color:var(--danger)">
+        <div class="card-header" style="background:#fde8e8">
+          <span class="card-title" style="color:var(--danger)">🚨 Zone de danger</span>
+        </div>
+        <div class="card-body">
+          <div class="grid-2">
+            <div>
+              <div style="font-weight:700;margin-bottom:6px;font-size:14px">Réinitialiser les données de démonstration</div>
+              <p class="text-sm text-muted">Efface toutes les ventes, lots et alertes de démo, et recharge la base DPML propre. <strong>Ne supprime pas</strong> les paramètres de la pharmacie.</p>
+              <button class="btn btn-outline btn-sm mt-2" style="border-color:var(--warning);color:var(--warning)" onclick="reinitDemo()">🔄 Réinitialiser démo</button>
+            </div>
+            <div>
+              <div style="font-weight:700;margin-bottom:6px;font-size:14px;color:var(--danger)">Effacer toutes les données</div>
+              <p class="text-sm text-muted">Supprime <strong>définitivement toutes les données</strong>. Cette action est irréversible. Faites une sauvegarde avant !</p>
+              <button class="btn btn-danger btn-sm mt-2" onclick="effacerTout()">🗑️ Effacer tout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+
+<!-- Modal SMS manuel -->
+<div class="modal-overlay" id="mSMSManuel">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff">
+      <span class="modal-title" style="color:#fff">✏️ Envoyer un SMS manuel</span>
+      <button class="modal-close" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Destinataire</label>
+        <select class="form-control" id="smsDestClient"><option value="">— Choisir un client —</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Ou numéro direct</label>
+        <input class="form-control" id="smsDestTel" placeholder="+221 77 000 00 00">
+      </div>
+      <div class="form-group"><label class="form-label">Langue</label>
+        <select class="form-control" id="smsLang"><option value="fr">🇫🇷 Français</option><option value="wo">🇸🇳 Wolof</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Message *</label>
+        <textarea class="form-control" id="smsMessage" rows="4" placeholder="Votre message..."></textarea>
+        <div class="text-xs text-muted mt-1" id="smsCharCount">0 / 160 caractères</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Annuler</button>
+      <button class="btn btn-primary" onclick="envoyerSMSManuel()">📱 Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal import catalogue custom -->
+<div class="modal-overlay" id="mImportMed">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header"><span class="modal-title">📥 Importer un catalogue</span><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-info text-sm">Format attendu : fichier CSV avec colonnes : <code>dci;nom_commercial;forme;dosage;classe;sur_ordonnance;prix_achat;prix_vente;seuil_min</code></div>
+      <div class="form-group mt-2">
+        <label class="form-label">Fichier CSV</label>
+        <input type="file" accept=".csv,.json" class="form-control" id="importFile">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Annuler</button>
+      <button class="btn btn-primary" onclick="importerCatalogue()">📥 Importer</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+  <script src="../../js/sms.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script src="../../js/backup.js"></script>
+<script src="../../js/pdf.js"></script>
+<script src="../../js/scanner.js"></script>
+<script>
+Auth.requireRole('pharmacien');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+
+function chargerConfigSMS() {
+  const cfg = SMS.getConfig();
+  document.getElementById('smsProvider').value = cfg.provider || 'demo';
+  document.getElementById('smsApiKey').value = cfg.api_key || '';
+  document.getElementById('smsSender').value = cfg.sender_id || '';
+  document.getElementById('smsRespStock').value = cfg.telephone_responsable || '';
+  const badge = document.getElementById('smsStatBadge');
+  if(SMS.isConfigured()) { badge.textContent = '✅ Configuré'; badge.className = 'badge badge-success'; }
+  else { badge.textContent = '🎭 Mode démo'; badge.className = 'badge badge-warning'; }
+  const stats = SMS.getStats();
+  document.getElementById('smsStats').innerHTML = `
+    <div class="grid-2" style="gap:8px;margin-bottom:10px">
+      <div style="background:var(--bg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--primary)">${stats.total}</div><div class="text-xs text-muted">Total envoyés</div></div>
+      <div style="background:var(--bg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--success)">${stats.envoyes + stats.simules}</div><div class="text-xs text-muted">Succès</div></div>
+      <div style="background:var(--bg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--warning)">${stats.credits}</div><div class="text-xs text-muted">Rappels crédit</div></div>
+      <div style="background:var(--bg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--danger)">${stats.echecs}</div><div class="text-xs text-muted">Échecs</div></div>
+    </div>`;
+  const logs = (DB.get('sms_logs') || []).slice(-5).reverse();
+  document.getElementById('smsLogs').innerHTML = logs.length
+    ? logs.map(l => `<div style="padding:5px 0;border-bottom:1px solid var(--border)"><span class="badge badge-${l.statut==='envoye'?'success':l.statut==='simule'?'neutral':'danger'}" style="font-size:10px">${l.statut}</span> ${l.telephone} — ${l.message?.substring(0,40)}...</div>`).join('')
+    : '<span class="text-muted">Aucun SMS envoyé</span>';
+  document.getElementById('smsDestClient').innerHTML = '<option value="">— Client —</option>' +
+    DB.get('clients').filter(c=>c.telephone).map(c=>`<option value="${c.telephone}">${c.prenom} ${c.nom} (${c.telephone})</option>`).join('');
+}
+
+function sauvegarderSMS() {
+  SMS.saveConfig({
+    provider: document.getElementById('smsProvider').value,
+    api_key: document.getElementById('smsApiKey').value,
+    sender_id: document.getElementById('smsSender').value,
+    telephone_responsable: document.getElementById('smsRespStock').value,
+    mode: document.getElementById('smsProvider').value === 'demo' ? 'demo' : 'live'
+  });
+  Toast.success('✅ Configuration SMS enregistrée');
+  chargerConfigSMS();
+}
+
+async function envoyerSMSManuel() {
+  const client = document.getElementById('smsDestClient').value;
+  const tel    = document.getElementById('smsDestTel').value || client;
+  const msg    = document.getElementById('smsMessage').value.trim();
+  if(!tel) { Toast.error('Choisissez un destinataire'); return; }
+  if(!msg) { Toast.error('Entrez un message'); return; }
+  await SMS.send(tel, msg, { type: 'manuel' });
+  Modal.close('mSMSManuel');
+  chargerConfigSMS();
+}
+
+document.addEventListener('input', e => {
+  if(e.target.id === 'smsMessage') {
+    document.getElementById('smsCharCount').textContent = e.target.value.length + ' / 160 caractères';
+  }
+});
+
+function load() {
+  // Infos pharmacie
+  const cfg = JSON.parse(localStorage.getItem('pharma_config') || '{}');
+  document.getElementById('pNom').value       = cfg.nom        || '';
+  document.getElementById('pAgrement').value  = cfg.agrement   || '';
+  document.getElementById('pAdresse').value   = cfg.adresse    || '';
+  document.getElementById('pTel').value       = cfg.telephone  || '';
+  document.getElementById('pEmail').value     = cfg.email      || '';
+  document.getElementById('pTitulaire').value = cfg.titulaire  || '';
+  document.getElementById('pFooter').value    = cfg.footer     || '';
+  document.getElementById('cfgMarge').value   = cfg.marge_defaut  || 30;
+  document.getElementById('cfgCredit').value  = cfg.delai_credit  || 30;
+  document.getElementById('cfgPerem').value   = cfg.delai_perem   || 90;
+
+  // Stats backup
+  const stats = Backup.stats();
+  document.getElementById('backupStats').textContent = `Dernière sauvegarde : ${stats.dernierBackup}`;
+  document.getElementById('backupDetail').innerHTML = `
+    <div class="grid-3">
+      <div><strong>${stats.totalEnregistrements}</strong><div class="text-xs text-muted">Enregistrements</div></div>
+      <div><strong>${stats.tablesCouverts}</strong><div class="text-xs text-muted">Tables sauvegardées</div></div>
+      <div><strong style="color:${stats.joursDepuisBackup===null||stats.joursDepuisBackup>=7?'var(--danger)':'var(--success)'}">${stats.joursDepuisBackup===null?'Jamais':stats.joursDepuisBackup+'j'}</strong><div class="text-xs text-muted">Depuis dernier backup</div></div>
+    </div>`;
+  Backup.checkBackupReminder();
+
+  // Stats médicaments DPML
+  const meds = DB.get('medicaments');
+  const classes = DB.get('classes');
+  document.getElementById('medCount').textContent = `${meds.length} médicaments`;
+  document.getElementById('dpmlStats').innerHTML = `
+    <div>✅ ${meds.filter(m=>!m.sur_ordonnance).length} médicaments en vente libre</div>
+    <div>📋 ${meds.filter(m=>m.sur_ordonnance).length} médicaments sur ordonnance</div>
+    <div>🗂️ ${classes.length} classes thérapeutiques</div>`;
+  document.getElementById('classesList').innerHTML = classes.slice(0,10).map(c => {
+    const n = meds.filter(m=>m.classe_id===c.id).length;
+    return `<div style="padding:4px 7px;background:var(--bg-alt);border-radius:5px">${c.nom} <strong>(${n})</strong></div>`;
+  }).join('');
+
+  // Support scanner
+  const sup = Scanner.isSupported();
+  document.getElementById('scannerSupport').innerHTML = sup
+    ? '✅ <strong>BarcodeDetector disponible</strong> — scanner caméra fonctionnel sur ce navigateur.'
+    : '⚠️ <strong>BarcodeDetector non disponible</strong> — utilisez la saisie manuelle ou Chrome/Edge à jour.';
+  document.getElementById('scannerSupport').className = `alert ${sup?'alert-success':'alert-warning'} mb-3`;
+
+  // Médicaments select + EAN list
+  document.getElementById('scanMed').innerHTML = meds.map(m=>`<option value="${m.id}">${m.nom_commercial}</option>`).join('');
+  const avecEAN = meds.filter(m=>m.code_ean);
+  document.getElementById('eanList').innerHTML = avecEAN.length
+    ? avecEAN.map(m=>`<div style="padding:3px 0;border-bottom:1px solid var(--border)">${m.nom_commercial} → <code style="font-size:11px">${m.code_ean}</code></div>`).join('')
+    : '<span class="text-muted">Aucun code EAN associé</span>';
+}
+
+function sauvegarderPharmacie() {
+  const cfg = JSON.parse(localStorage.getItem('pharma_config') || '{}');
+  const updated = {
+    ...cfg,
+    nom:        document.getElementById('pNom').value,
+    agrement:   document.getElementById('pAgrement').value,
+    adresse:    document.getElementById('pAdresse').value,
+    telephone:  document.getElementById('pTel').value,
+    email:      document.getElementById('pEmail').value,
+    titulaire:  document.getElementById('pTitulaire').value,
+    footer:     document.getElementById('pFooter').value,
+  };
+  localStorage.setItem('pharma_config', JSON.stringify(updated));
+  localStorage.setItem('pharma_nom', updated.nom);
+  Toast.success('✅ Informations de la pharmacie enregistrées !');
+}
+
+function sauvegarderConfig() {
+  const cfg = JSON.parse(localStorage.getItem('pharma_config') || '{}');
+  const updated = {
+    ...cfg,
+    marge_defaut: parseInt(document.getElementById('cfgMarge').value) || 30,
+    delai_credit: parseInt(document.getElementById('cfgCredit').value) || 30,
+    delai_perem:  parseInt(document.getElementById('cfgPerem').value) || 90,
+    devise:       document.getElementById('cfgDevise').value,
+  };
+  localStorage.setItem('pharma_config', JSON.stringify(updated));
+  Toast.success('✅ Configuration commerciale enregistrée !');
+}
+
+function chargerDPML() {
+  if (!confirm('Recharger la base DPML va remplacer le catalogue actuel. Continuer ?')) return;
+  // Vider les médicaments et recharger
+  DB.set('medicaments', []);
+  DB.set('classes', []);
+  const n = MED_DPML.load();
+  Toast.success(`✅ Base DPML rechargée : ${DB.get('medicaments').length} médicaments, ${DB.get('classes').length} classes`);
+  load();
+}
+
+function exporterCatalogue() {
+  Backup.exportCSV('medicaments', `catalogue-medicaments-${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+function importerCatalogue() {
+  const file = document.getElementById('importFile').files[0];
+  if (!file) { Toast.error('Aucun fichier sélectionné'); return; }
+  // Support JSON ou CSV basique
+  if (file.name.endsWith('.json')) {
+    Backup.importJSON(file, () => { Modal.close('mImportMed'); load(); });
+  } else {
+    Toast.info('Import CSV — fonctionnalité en cours de développement.');
+  }
+}
+
+function testerScanner() {
+  Scanner.open(result => {
+    if (result.medicament) {
+      Toast.success(`💊 Trouvé : ${result.medicament.nom_commercial}`);
+    } else {
+      Toast.warning(`Code ${result.code} — non trouvé dans le catalogue`);
+    }
+  });
+}
+
+function associerEAN() {
+  const medId = document.getElementById('scanMed').value;
+  const code  = document.getElementById('scanCode').value.trim();
+  if (!code) { Toast.error('Entrez un code EAN'); return; }
+  Scanner.associerCode(medId, code);
+  document.getElementById('scanCode').value = '';
+  load();
+}
+
+function reinitDemo() {
+  if (!confirm('Réinitialiser les données de démo ? Les données réelles ne seront pas affectées.')) return;
+  ['ventes','lignes_vente','lots','alertes','audit_logs'].forEach(t => DB.set(t, []));
+  DB.set('medicaments', []); DB.set('classes', []);
+  MED_DPML.load();
+  checkStockAlertes(); checkPeremptions();
+  Toast.success('✅ Données de démo réinitialisées — catalogue DPML rechargé');
+  setTimeout(() => window.location.reload(), 1000);
+}
+
+function effacerTout() {
+  if (!confirm('⚠️ ATTENTION : Effacer TOUTES les données définitivement ?\n\nCette action est IRRÉVERSIBLE. Avez-vous fait une sauvegarde ?')) return;
+  if (!confirm('Dernière confirmation : effacer toutes les données ?')) return;
+  ['ventes','lignes_vente','lots','alertes','audit_logs','ordonnances','lignes_ordonnance',
+   'clients','commandes_fournisseurs','lignes_commande','pertes','medicaments','classes','fournisseurs'].forEach(t => DB.set(t, []));
+  Toast.warning('Toutes les données ont été effacées');
+  setTimeout(() => window.location.reload(), 1500);
+}
+
+load();
+chargerConfigSMS();
+</script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

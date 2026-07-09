@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Tableau de bord</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">🧪 Espace Préparateur</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+
+      <div class="hero-banner hero-preparateur">
+        <div class="hero-left">
+          <div class="hero-tag"><span class="dot"></span> Préparateur en pharmacie</div>
+          <div class="hero-title">Bonjour, <em id="hNom">Préparateur</em></div>
+          <div class="hero-sub">Ventes au comptoir et gestion des stocks</div>
+          <div class="hero-stats">
+            <div class="hero-stat"><div class="v" id="hV">0</div><div class="l">Ventes aujourd'hui</div></div>
+            <div class="hero-stat"><div class="v" id="hS">0</div><div class="l">Médicaments en stock</div></div>
+          </div>
+        </div>
+        <div class="hero-right">
+          <svg viewBox="0 0 220 180" width="220" height="180" xmlns="http://www.w3.org/2000/svg">
+            <rect x="40" y="80" width="140" height="80" rx="8" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.15)" stroke-width="1.5"/>
+            <rect x="50" y="90" width="120" height="30" rx="4" fill="rgba(21,101,192,.35)"/>
+            <text x="110" y="110" text-anchor="middle" font-size="11" fill="#fff" font-weight="700" font-family="DM Sans,sans-serif">STOCK DISPONIBLE</text>
+            <rect x="50" y="130" width="35" height="20" rx="4" fill="rgba(255,255,255,.12)"/>
+            <rect x="90" y="130" width="35" height="20" rx="4" fill="rgba(255,255,255,.12)"/>
+            <rect x="130" y="130" width="35" height="20" rx="4" fill="rgba(245,158,11,.3)"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="grid-2">
+        <div class="card"><div class="card-header"><span class="card-title">🧾 Ventes récentes</span><a href="ventes.html" class="btn btn-primary btn-sm">Nouvelle vente</a></div><div class="card-body" style="padding:0"><table><thead><tr><th>Réf</th><th>Montant</th><th>Mode</th><th>Statut</th></tr></thead><tbody id="vBody"></tbody></table></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">⚠️ Stocks critiques</span></div><div class="card-body" id="stockBody"></div></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('preparateur');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+document.getElementById('hNom').textContent = user.nom.split(' ')[0];
+function load(){
+  const today=new Date().toISOString().split('T')[0];
+  const ventes=DB.get('ventes').filter(v=>v.vendeur_id===user.id&&v.date_vente&&v.date_vente.startsWith(today));
+  const meds=DB.get('medicaments');
+  const stockTotal=DB.get('lots').filter(l=>l.statut==='actif').reduce((s,l)=>s+l.quantite_disponible,0);
+  document.getElementById('hV').textContent=ventes.length;
+  document.getElementById('hS').textContent=stockTotal;
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon green">🧾</div><div><div class="stat-label">Mes ventes</div><div class="stat-value">${ventes.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue">📦</div><div><div class="stat-label">Unités en stock</div><div class="stat-value">${stockTotal}</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">⚠️</div><div><div class="stat-label">Stocks critiques</div><div class="stat-value">${meds.filter(m=>getStockTotal(m.id)<=m.seuil_min).length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">💊</div><div><div class="stat-label">Médicaments</div><div class="stat-value">${meds.length}</div></div></div>`;
+  const clients=DB.get('clients');
+  document.getElementById('vBody').innerHTML=ventes.slice(-5).reverse().map(v=>{const m={especes:'💵',wave:'📱',orange_money:'📱',credit:'💳'};return`<tr><td><code style="font-size:11px">${v.ref_vente}</code></td><td style="font-weight:700;color:var(--primary)">${Fmt.currency(v.montant_total)}</td><td>${m[v.mode_paiement]||'—'}</td><td>${Fmt.statutVente(v.statut)}</td></tr>`}).join('')||'<tr><td colspan="4" style="text-align:center;padding:14px;color:var(--text-muted)">Aucune vente</td></tr>';
+  const critiques=meds.filter(m=>getStockTotal(m.id)<=m.seuil_min);
+  document.getElementById('stockBody').innerHTML=critiques.length?critiques.map(m=>{const s=getStockTotal(m.id);return`<div class="alerte-pill ${s===0?'danger':'warning'}"><span>📦</span><div><div style="font-weight:600;font-size:12.5px">${m.nom_commercial}</div><div class="text-xs">Stock: ${s} / Seuil: ${m.seuil_min}</div></div></div>`}).join(''):'<p class="text-muted text-sm text-center" style="padding:14px">✅ Tous les stocks sont OK</p>';
+}
+load();
+
+</script>
+</body>
+</html>

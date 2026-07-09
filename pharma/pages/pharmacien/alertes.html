@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Centre d'alertes</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">🔔 Centre d'alertes</h1></div>
+      <div class="topbar-right">
+        <button class="btn btn-outline btn-sm" onclick="genererAlertes()">🔄 Rafraîchir</button>
+        <button class="btn btn-outline btn-sm" onclick="markAllRead()">✅ Tout marquer lu</button>
+      </div>
+    </header>
+    <main class="page-content">
+
+      <div class="alert alert-warning">
+        ⚠️ Les alertes sont générées <strong>automatiquement</strong> selon les règles RG8 (péremption &lt; 3 mois), RG10 (stock sous le seuil) et RG28 (crédit non remboursé &gt; 30 jours).
+      </div>
+
+      <!-- Stats alertes -->
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(4,1fr)"></div>
+
+      <!-- Filtre type -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-outline btn-sm" onclick="filterType('')" id="fAll">🔔 Toutes</button>
+        <button class="btn btn-outline btn-sm" onclick="filterType('stock_faible')" id="fStock">📦 Stock faible</button>
+        <button class="btn btn-outline btn-sm" onclick="filterType('peremption')" id="fPerem">⚠️ Péremption</button>
+        <button class="btn btn-outline btn-sm" onclick="filterType('credit_retard')" id="fCredit">💳 Crédit retard</button>
+      </div>
+
+      <!-- Alertes non lues -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">Alertes actives</span>
+          <span class="badge badge-danger" id="cntNonLu">0</span>
+        </div>
+        <div class="card-body" id="alertesActives"></div>
+      </div>
+
+      <!-- Alertes lues -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Historique des alertes</span>
+          <button class="btn btn-outline btn-xs" onclick="toggleHistory()">Afficher/Masquer</button>
+        </div>
+        <div class="card-body" id="alertesHist" style="display:none"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('pharmacien','resp_stock');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+let currentFilter = '';
+
+function filterType(type) {
+  currentFilter = type;
+  ['fAll','fStock','fPerem','fCredit'].forEach(id => document.getElementById(id).classList.remove('btn-primary'));
+  const map = {'':'fAll','stock_faible':'fStock','peremption':'fPerem','credit_retard':'fCredit'};
+  document.getElementById(map[type] || 'fAll').classList.add('btn-primary');
+  render();
+}
+
+function genererAlertes() {
+  checkStockAlertes();
+  checkPeremptions();
+  // Vérifier crédits en retard (RG28)
+  DB.get('clients').filter(c => (c.solde_credit||0) > 0).forEach(c => {
+    const existing = DB.get('alertes').find(a => a.type === 'credit_retard' && a.client_id === c.id && !a.lu);
+    if (!existing) {
+      DB.push('alertes', {
+        type: 'credit_retard',
+        client_id: c.id,
+        message: `${c.prenom} ${c.nom} — Crédit ${Fmt.currency(c.solde_credit)} non remboursé`,
+        lu: false,
+        dest_role: 'caissier'
+      });
+    }
+  });
+  updateAlerteBadge();
+  Toast.success('🔄 Alertes régénérées !');
+  render();
+}
+
+function render() {
+  const alertes = DB.get('alertes');
+  let actives  = alertes.filter(a => !a.lu);
+  let hist     = alertes.filter(a => a.lu);
+  if (currentFilter) {
+    actives = actives.filter(a => a.type === currentFilter);
+    hist    = hist.filter(a => a.type === currentFilter);
+  }
+
+  const nbStock  = alertes.filter(a => !a.lu && a.type==='stock_faible').length;
+  const nbPerem  = alertes.filter(a => !a.lu && a.type==='peremption').length;
+  const nbCredit = alertes.filter(a => !a.lu && a.type==='credit_retard').length;
+  const nbTotal  = alertes.filter(a => !a.lu).length;
+
+  document.getElementById('cntNonLu').textContent = nbTotal;
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon red">🔔</div><div><div class="stat-label">Total actives</div><div class="stat-value">${nbTotal}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">📦</div><div><div class="stat-label">Stock faible</div><div class="stat-value">${nbStock}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">⚠️</div><div><div class="stat-label">Péremptions</div><div class="stat-value">${nbPerem}</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">💳</div><div><div class="stat-label">Crédits retard</div><div class="stat-value">${nbCredit}</div></div></div>`;
+
+  const icons   = { stock_faible:'📦', peremption:'⚠️', credit_retard:'💳' };
+  const colors  = { stock_faible:'danger', peremption:'warning', credit_retard:'warning' };
+  const actions = {
+    stock_faible: a => {
+      const m = DB.find('medicaments', a.medicament_id);
+      return `<a href="../../pages/resp-stock/commandes.html" class="btn btn-warning btn-xs">🛒 Commander</a>`;
+    },
+    peremption: a => {
+      return `<a href="stocks.html" class="btn btn-outline btn-xs">📦 Voir le lot</a>`;
+    },
+    credit_retard: a => {
+      return `<a href="clients.html" class="btn btn-outline btn-xs">👤 Voir client</a>`;
+    }
+  };
+
+  document.getElementById('alertesActives').innerHTML = actives.length
+    ? actives.sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0)).map(a => `
+        <div style="border:1px solid var(--border);border-left:4px solid var(--${colors[a.type]||'warning'});border-radius:9px;padding:13px 15px;margin-bottom:10px;display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${icons[a.type]||'🔔'}</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13.5px">${a.message}</div>
+            <div class="text-xs text-muted mt-1">
+              <span class="badge badge-neutral" style="font-size:9.5px">${{stock_faible:'Stock faible',peremption:'Péremption',credit_retard:'Crédit retard'}[a.type]||a.type}</span>
+              · ${Fmt.dateTime(a.created_at)}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            ${(actions[a.type]||(() => ''))(a)}
+            <button class="btn btn-outline btn-xs" onclick="marquerLu('${a.id}')">✅ Lu</button>
+          </div>
+        </div>`)
+      .join('')
+    : '<div style="text-align:center;padding:30px;color:var(--success);font-size:15px">✅ Aucune alerte active — La pharmacie est en ordre !</div>';
+
+  document.getElementById('alertesHist').innerHTML = hist.length
+    ? hist.slice(0, 20).map(a => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;opacity:.6">
+          <span style="font-size:16px">${icons[a.type]||'🔔'}</span>
+          <div style="flex:1"><div style="font-size:13px">${a.message}</div><div class="text-xs text-muted">${Fmt.dateTime(a.created_at)}</div></div>
+          <span class="badge badge-success" style="font-size:10px">✅ Lu</span>
+        </div>`).join('')
+    : '<p class="text-muted text-sm text-center" style="padding:16px">Aucun historique</p>';
+}
+
+function marquerLu(id) {
+  DB.update('alertes', id, { lu: true, lu_le: new Date().toISOString() });
+  updateAlerteBadge();
+  render();
+}
+
+function markAllRead() {
+  const alertes = DB.get('alertes');
+  const updated = alertes.map(a => ({ ...a, lu: true, lu_le: new Date().toISOString() }));
+  DB.set('alertes', updated);
+  updateAlerteBadge();
+  Toast.success('Toutes les alertes marquées comme lues');
+  render();
+}
+
+function toggleHistory() {
+  const el = document.getElementById('alertesHist');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+filterType('');
+</script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

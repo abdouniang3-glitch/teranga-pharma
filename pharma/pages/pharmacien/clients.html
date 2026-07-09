@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Clients</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">👥 Clients</h1></div>
+      <div class="topbar-right"><button class="btn btn-primary btn-sm" onclick="Modal.open('mClient')">➕ Nouveau client</button></div>
+    </header>
+    <main class="page-content">
+
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(4,1fr)"></div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Liste des clients</span>
+          <div style="display:flex;gap:8px">
+            <input class="form-control" id="search" placeholder="🔍 Nom, téléphone..." style="width:200px" oninput="load()">
+            <select class="form-control" id="filterHab" style="width:160px" onchange="load()">
+              <option value="">Tous les clients</option>
+              <option value="1">Habitués seulement</option>
+              <option value="credit">Avec crédit en cours</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table>
+            <thead><tr><th>Nom</th><th>Téléphone</th><th>Antécédents</th><th>Habitué</th><th>Crédit dispo</th><th>Solde crédit</th><th>Remise</th><th></th></tr></thead>
+            <tbody id="b"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal nouveau client -->
+<div class="modal-overlay" id="mClient">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff">
+      <span class="modal-title" style="color:#fff">➕ Nouveau client</span>
+      <button class="modal-close" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Prénom *</label><input class="form-control" id="cPrenom"></div>
+        <div class="form-group"><label class="form-label">Nom *</label><input class="form-control" id="cNom"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Téléphone</label><input class="form-control" id="cTel" placeholder="+221 77 xxx xx xx"></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-control" id="cEmail" type="email"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Date de naissance</label><input type="date" class="form-control" id="cDob"></div>
+        <div class="form-group"><label class="form-label">Client habitué ?</label>
+          <select class="form-control" id="cHab"><option value="0">Non</option><option value="1">Oui</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Antécédents médicaux (confidentiel)</label><textarea class="form-control" id="cAntec" rows="2" placeholder="Ex: Hypertension, Diabète..."></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Plafond crédit (FCFA)</label><input type="number" class="form-control" id="cPlafond" value="50000"></div>
+        <div class="form-group"><label class="form-label">Remise commerciale (%)</label><input type="number" class="form-control" id="cRemise" value="0" min="0" max="50"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Annuler</button>
+      <button class="btn btn-primary" onclick="saveClient()">✅ Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal fiche client -->
+<div class="modal-overlay" id="mFiche">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><span class="modal-title">👤 Fiche client</span><button class="modal-close">✕</button></div>
+    <div class="modal-body" id="ficheBody"></div>
+    <div class="modal-footer"><button class="btn btn-outline modal-close">Fermer</button></div>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('pharmacien','assistant','caissier');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+function load() {
+  const clients = DB.get('clients');
+  const search  = document.getElementById('search').value.toLowerCase();
+  const filt    = document.getElementById('filterHab').value;
+  let list = clients.slice();
+  if (search) list = list.filter(c => (c.nom + ' ' + c.prenom + ' ' + (c.telephone||'')).toLowerCase().includes(search));
+  if (filt === '1') list = list.filter(c => c.est_habitue);
+  if (filt === 'credit') list = list.filter(c => (c.solde_credit || 0) > 0);
+
+  const nbHab    = clients.filter(c => c.est_habitue).length;
+  const nbCredit = clients.filter(c => (c.solde_credit || 0) > 0).length;
+  const totalCredit = clients.reduce((s, c) => s + (c.solde_credit || 0), 0);
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon blue">👥</div><div><div class="stat-label">Total clients</div><div class="stat-value">${clients.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">⭐</div><div><div class="stat-label">Habitués</div><div class="stat-value">${nbHab}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">💳</div><div><div class="stat-label">Avec crédit</div><div class="stat-value">${nbCredit}</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">💰</div><div><div class="stat-label">Total crédits</div><div class="stat-value">${Fmt.currency(totalCredit)}</div></div></div>`;
+
+  document.getElementById('b').innerHTML = list.map(c => {
+    const dispo = (c.plafond_credit || 0) - (c.solde_credit || 0);
+    const retard = (c.solde_credit || 0) > 0;
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:8px">
+        <div class="avatar" style="width:30px;height:30px;border-radius:7px;font-size:11px">${Fmt.initials(c.prenom + ' ' + c.nom)}</div>
+        <div><strong style="font-size:13px">${c.prenom} ${c.nom}</strong></div>
+      </div></td>
+      <td style="font-size:12.5px">${c.telephone || '—'}</td>
+      <td style="font-size:12px;max-width:180px">${c.antecedents || '—'}</td>
+      <td>${c.est_habitue ? '<span class="badge badge-success">⭐ Oui</span>' : '<span class="badge badge-neutral">Non</span>'}</td>
+      <td style="font-weight:600;color:${dispo <= 0 ? 'var(--danger)' : 'var(--success)'}">${Fmt.currency(dispo)}</td>
+      <td><span class="${retard ? 'text-danger fw-700' : 'text-muted'}">${Fmt.currency(c.solde_credit || 0)}</span></td>
+      <td>${(c.remise_pct || 0) > 0 ? `<span class="badge badge-primary">-${c.remise_pct}%</span>` : '—'}</td>
+      <td style="display:flex;gap:5px">
+        <button class="btn btn-outline btn-xs" onclick="voirFiche('${c.id}')">👁️</button>
+        <button class="btn btn-outline btn-xs" onclick="editPlafond('${c.id}')">✏️</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted)">Aucun client</td></tr>';
+}
+
+function saveClient() {
+  const prenom = document.getElementById('cPrenom').value.trim();
+  const nom    = document.getElementById('cNom').value.trim();
+  if (!prenom || !nom) { Toast.error('Prénom et nom obligatoires'); return; }
+  DB.push('clients', {
+    nom, prenom,
+    telephone: document.getElementById('cTel').value,
+    email:     document.getElementById('cEmail').value,
+    date_naissance: document.getElementById('cDob').value,
+    antecedents: document.getElementById('cAntec').value,
+    est_habitue: document.getElementById('cHab').value === '1',
+    plafond_credit: parseInt(document.getElementById('cPlafond').value) || 50000,
+    solde_credit: 0,
+    remise_pct: parseInt(document.getElementById('cRemise').value) || 0,
+    user_id: null
+  });
+  Modal.close('mClient');
+  ['cPrenom','cNom','cTel','cEmail','cDob','cAntec'].forEach(id => document.getElementById(id).value = '');
+  Toast.success('✅ Client enregistré !');
+  load();
+}
+
+function editPlafond(id) {
+  const c = DB.find('clients', id); if (!c) return;
+  const nv = prompt(`Nouveau plafond de crédit pour ${c.prenom} ${c.nom} (actuel: ${Fmt.currency(c.plafond_credit)}) :`, c.plafond_credit);
+  if (!nv || isNaN(nv)) return;
+  DB.update('clients', id, { plafond_credit: parseInt(nv) });
+  Toast.success('Plafond mis à jour');
+  load();
+}
+
+function voirFiche(id) {
+  const c = DB.find('clients', id); if (!c) return;
+  const ventes   = DB.get('ventes').filter(v => v.client_id === id);
+  const ordonnances = DB.get('ordonnances').filter(o => o.client_id === id);
+  const totalAchats = ventes.filter(v => v.statut === 'completee').reduce((s, v) => s + v.montant_total, 0);
+
+  document.getElementById('ficheBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div class="avatar-lg" style="background:var(--primary)">${Fmt.initials(c.prenom + ' ' + c.nom)}</div>
+      <div>
+        <div style="font-size:18px;font-weight:700">${c.prenom} ${c.nom}</div>
+        <div class="text-sm text-muted">📞 ${c.telephone || '—'} · ✉️ ${c.email || '—'}</div>
+        <div class="mt-1">${c.est_habitue ? '<span class="badge badge-success">⭐ Client habitué</span>' : ''}</div>
+      </div>
+    </div>
+    <div class="grid-2 mb-3">
+      <div style="background:var(--bg);border-radius:9px;padding:12px">
+        <div class="text-xs text-muted">Total achats</div>
+        <div style="font-size:18px;font-weight:700;color:var(--success)">${Fmt.currency(totalAchats)}</div>
+      </div>
+      <div style="background:var(--bg);border-radius:9px;padding:12px">
+        <div class="text-xs text-muted">Solde crédit</div>
+        <div style="font-size:18px;font-weight:700;color:${c.solde_credit > 0 ? 'var(--danger)' : 'var(--success)'}">${Fmt.currency(c.solde_credit || 0)}</div>
+      </div>
+    </div>
+    ${c.antecedents ? `<div class="alert alert-warning">🏥 Antécédents : ${c.antecedents}</div>` : ''}
+    <div style="font-weight:700;font-size:13px;margin-bottom:10px">📜 Derniers achats (${ventes.length} ventes)</div>
+    ${ventes.slice(-5).reverse().map(v => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px">
+        <span>${Fmt.date(v.date_vente)} · ${v.ref_vente}</span>
+        <strong style="color:var(--primary)">${Fmt.currency(v.montant_total)}</strong>
+      </div>`).join('') || '<p class="text-muted text-sm">Aucun achat</p>'}
+    <div style="font-weight:700;font-size:13px;margin:14px 0 10px">📋 Ordonnances (${ordonnances.length})</div>
+    ${ordonnances.slice(-3).reverse().map(o => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px">
+        <span>${o.ref_ordonnance} · Dr ${o.medecin_nom || '?'}</span>
+        ${Fmt.statutOrd(o.statut)}
+      </div>`).join('') || '<p class="text-muted text-sm">Aucune ordonnance</p>'}`;
+  Modal.open('mFiche');
+}
+
+load();
+</script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

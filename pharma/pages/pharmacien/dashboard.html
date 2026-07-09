@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Pharmacien</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">Tableau de bord — Pharmacien Titulaire</h1></div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="Modal.open('mVenteRapide')">🧾 Vente rapide</button>
+        <button class="btn btn-outline btn-sm" onclick="Backup.exportJSON()" title="Sauvegarder">💾</button>
+        <a href="parametres.html" class="btn btn-outline btn-sm">⚙️</a>
+        <div style="font-size:12px;color:var(--text-muted)" id="dateNow"></div>
+      </div>
+    </header>
+    <main class="page-content">
+
+      <!-- Hero -->
+      <div class="hero-banner hero-pharmacien">
+        <div class="hero-left">
+          <div class="hero-tag"><span class="dot"></span> Pharmacien Titulaire</div>
+          <div class="hero-title">Bonjour, <em id="heroNom">Dr</em> 👋</div>
+          <div class="hero-sub">Vue d'ensemble de la pharmacie TERANGA PHARMA</div>
+          <div class="hero-stats">
+            <div class="hero-stat"><div class="v" id="hCA">0</div><div class="l">FCFA CA aujourd'hui</div></div>
+            <div class="hero-stat"><div class="v" id="hAlertes">0</div><div class="l">Alertes actives</div></div>
+            <div class="hero-stat"><div class="v" id="hVentes">0</div><div class="l">Ventes du jour</div></div>
+          </div>
+        </div>
+        <div class="hero-right">
+          <svg viewBox="0 0 230 190" width="230" height="190" xmlns="http://www.w3.org/2000/svg">
+            <rect x="80" y="60" width="60" height="16" rx="8" fill="rgba(245,158,11,.6)"/>
+            <rect x="96" y="44" width="16" height="60" rx="8" fill="rgba(245,158,11,.6)"/>
+            <!-- Boîtes médicaments -->
+            <rect x="30" y="120" width="45" height="55" rx="6" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+            <rect x="33" y="123" width="39" height="18" rx="3" fill="rgba(10,122,74,.5)"/>
+            <rect x="90" y="110" width="45" height="65" rx="6" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.18)" stroke-width="1.5"/>
+            <rect x="93" y="113" width="39" height="18" rx="3" fill="rgba(21,101,192,.5)"/>
+            <rect x="150" y="125" width="45" height="50" rx="6" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.18)" stroke-width="1.5"/>
+            <rect x="153" y="128" width="39" height="18" rx="3" fill="rgba(220,38,38,.4)"/>
+            <!-- Étagère -->
+            <rect x="20" y="175" width="185" height="5" rx="2.5" fill="rgba(255,255,255,.15)"/>
+            <circle cx="195" cy="50" r="3" fill="rgba(245,158,11,.5)"/>
+            <circle cx="15" cy="100" r="2" fill="rgba(255,255,255,.2)"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <!-- Alertes critiques + Péremptions -->
+      <div class="grid-2 mb-4">
+        <div class="card">
+          <div class="card-header"><span class="card-title">🚨 Alertes actives</span><span class="badge badge-danger" id="alertCount">0</span></div>
+          <div class="card-body" id="alertesList"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">⚠️ Lots proches de péremption</span></div>
+          <div class="card-body" id="peremptionsList"></div>
+        </div>
+      </div>
+
+      <!-- Stocks critiques + Dernières ventes -->
+      <div class="grid-2 mb-4">
+        <div class="card">
+          <div class="card-header"><span class="card-title">📦 Stocks critiques (sous le seuil)</span><a href="stocks.html" class="btn btn-outline btn-sm">Voir tout</a></div>
+          <div class="card-body" style="padding:0">
+            <table><thead><tr><th>Médicament</th><th>Stock</th><th>Seuil min.</th><th>Statut</th></tr></thead>
+            <tbody id="stocksCritiques"></tbody></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">🧾 Dernières ventes</span><a href="ventes.html" class="btn btn-outline btn-sm">Voir tout</a></div>
+          <div class="card-body" style="padding:0">
+            <table><thead><tr><th>Réf</th><th>Client</th><th>Montant</th><th>Mode</th><th>Statut</th></tr></thead>
+            <tbody id="ventesBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rapport financier rapide -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">💰 Synthèse financière</span><a href="rapports.html" class="btn btn-primary btn-sm">Rapports complets</a></div>
+        <div class="card-body" id="financeSummary"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal vente rapide -->
+<div class="modal-overlay" id="mVenteRapide">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff">
+      <span class="modal-title" style="color:#fff">🧾 Vente rapide</span>
+      <button class="modal-close" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Médicament *</label><select class="form-control" id="vMed" onchange="updateVenteInfo()"></select></div>
+        <div class="form-group"><label class="form-label">Quantité *</label><input type="number" class="form-control" id="vQte" value="1" min="1" oninput="updateVenteInfo()"></div>
+      </div>
+      <div id="vInfoLot" class="alert alert-info" style="display:none"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Client</label><select class="form-control" id="vClient"><option value="">— Passage —</option></select></div>
+        <div class="form-group"><label class="form-label">Mode paiement</label>
+          <select class="form-control" id="vMode"><option value="especes">💵 Espèces</option><option value="wave">📱 Wave</option><option value="orange_money">📱 Orange Money</option><option value="credit">💳 Crédit</option></select>
+        </div>
+      </div>
+      <div id="vTotal" style="text-align:right;font-size:18px;font-weight:700;color:var(--primary);padding:10px 0">Total : 0 FCFA</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Annuler</button>
+      <button class="btn btn-primary" onclick="enregistrerVente()">✅ Enregistrer la vente</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('pharmacien');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+document.getElementById('dateNow').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+document.getElementById('heroNom').textContent = user.nom;
+
+function load() {
+  const meds    = DB.get('medicaments');
+  const lots    = DB.get('lots');
+  const ventes  = DB.get('ventes');
+  const clients = DB.get('clients');
+  const alertes = DB.get('alertes').filter(a=>!a.lu);
+  const today   = new Date().toISOString().split('T')[0];
+  const ventesJour = ventes.filter(v=>v.date_vente&&v.date_vente.startsWith(today)&&v.statut==='completee');
+  const caJour  = ventesJour.reduce((s,v)=>s+v.montant_total,0);
+
+  document.getElementById('hCA').textContent = Fmt.currency(caJour);
+  document.getElementById('hAlertes').textContent = alertes.length;
+  document.getElementById('hVentes').textContent = ventesJour.length;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon green">💰</div><div><div class="stat-label" data-i18n="dash.ca_today">CA aujourd'hui</div><div class="stat-value">${Fmt.currency(caJour)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue">🧾</div><div><div class="stat-label" data-i18n="dash.sales_today">Ventes du jour</div><div class="stat-value">${ventesJour.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">🔔</div><div><div class="stat-label" data-i18n="dash.alerts">Alertes actives</div><div class="stat-value">${alertes.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">📦</div><div><div class="stat-label">Médicaments</div><div class="stat-value">${meds.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">⚠️</div><div><div class="stat-label">Lots en alerte</div><div class="stat-value">${lots.filter(l=>l.statut==='alerte_peremption').length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon teal">👥</div><div><div class="stat-label">Clients habitués</div><div class="stat-value">${clients.filter(c=>c.est_habitue).length}</div></div></div>`;
+
+  // Alertes
+  document.getElementById('alertCount').textContent = alertes.length;
+  const alertIcons = {stock_faible:'📦',peremption:'⚠️',credit_retard:'💳'};
+  const alertClasses = {stock_faible:'danger',peremption:'warning',credit_retard:'warning'};
+  document.getElementById('alertesList').innerHTML = alertes.length
+    ? alertes.map(a=>`<div class="alerte-pill ${alertClasses[a.type]||'warning'}" onclick="marquerLu('${a.id}')">
+        <span>${alertIcons[a.type]||'🔔'}</span><span>${a.message}</span>
+        <button style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px" title="Marquer lu">✕</button>
+      </div>`).join('')
+    : '<p class="text-muted text-sm text-center" style="padding:20px">✅ Aucune alerte active</p>';
+
+  // Péremptions
+  const alertLots = lots.filter(l=>l.statut==='alerte_peremption'||Fmt.joursPeremption(l.date_peremption)<=90);
+  document.getElementById('peremptionsList').innerHTML = alertLots.length
+    ? alertLots.map(l=>{
+        const m=DB.find('medicaments',l.medicament_id);
+        const j=Fmt.joursPeremption(l.date_peremption);
+        return `<div class="alerte-pill ${j<=30?'danger':'warning'}">
+          <span>💊</span>
+          <div><div style="font-weight:600;font-size:12.5px">${m?m.nom_commercial:'—'} — ${l.numero_lot}</div>
+          <div class="text-xs">Périme le ${Fmt.date(l.date_peremption)} (<strong>${j}j</strong>) · ${l.quantite_disponible} unités</div></div>
+        </div>`;
+      }).join('')
+    : '<p class="text-muted text-sm text-center" style="padding:20px">✅ Aucun lot en alerte péremption</p>';
+
+  // Stocks critiques
+  const critiques = meds.filter(m=>getStockTotal(m.id)<=m.seuil_min);
+  document.getElementById('stocksCritiques').innerHTML = critiques.length
+    ? critiques.map(m=>{
+        const stock=getStockTotal(m.id);
+        return `<tr><td><strong>${m.nom_commercial}</strong><div class="text-xs text-muted">${m.dci}</div></td>
+        <td><span class="${stock===0?'text-danger fw-700':'text-warning fw-700'}">${stock}</span></td>
+        <td>${m.seuil_min}</td>
+        <td>${stock===0?'<span class="badge badge-danger">🔴 Rupture</span>':'<span class="badge badge-warning">⚠️ Critique</span>'}</td></tr>`;
+      }).join('')
+    : '<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--success)">✅ Tous les stocks sont suffisants</td></tr>';
+
+  // Dernières ventes
+  document.getElementById('ventesBody').innerHTML = ventes.slice(-6).reverse().map(v=>{
+    const c=clients.find(x=>x.id===v.client_id);
+    return `<tr><td><code style="font-size:11px">${v.ref_vente}</code></td>
+    <td>${c?c.prenom+' '+c.nom:'Passage'}</td>
+    <td style="font-weight:700;color:var(--primary)">${Fmt.currency(v.montant_total)}</td>
+    <td style="font-size:12px">${{especes:'💵',wave:'📱 Wave',orange_money:'📱 OM',credit:'💳'}[v.mode_paiement]||v.mode_paiement}</td>
+    <td>${Fmt.statutVente(v.statut)}</td></tr>`;
+  }).join('')||'<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text-muted)">Aucune vente</td></tr>';
+
+  // Synthèse financière
+  const totalCA = ventes.filter(v=>v.statut==='completee').reduce((s,v)=>s+v.montant_total,0);
+  const totalRemises = ventes.filter(v=>v.statut==='completee').reduce((s,v)=>s+(v.montant_remise||0),0);
+  const creditsEnCours = clients.reduce((s,c)=>s+(c.solde_credit||0),0);
+  document.getElementById('financeSummary').innerHTML = `
+    <div class="grid-3" style="text-align:center">
+      <div style="padding:18px;background:var(--bg);border-radius:10px"><div style="font-size:22px;font-weight:700;color:var(--success)">${Fmt.currency(totalCA)}</div><div class="text-sm text-muted">CA total</div></div>
+      <div style="padding:18px;background:var(--bg);border-radius:10px"><div style="font-size:22px;font-weight:700;color:var(--warning)">${Fmt.currency(totalRemises)}</div><div class="text-sm text-muted">Total remises</div></div>
+      <div style="padding:18px;background:var(--bg);border-radius:10px"><div style="font-size:22px;font-weight:700;color:var(--danger)">${Fmt.currency(creditsEnCours)}</div><div class="text-sm text-muted">Crédits en cours</div></div>
+    </div>`;
+
+  // Peupler modal vente
+  document.getElementById('vMed').innerHTML = meds.map(m=>`<option value="${m.id}">${m.nom_commercial} (${getStockTotal(m.id)} unités)</option>`).join('');
+  document.getElementById('vClient').innerHTML = '<option value="">— Passage —</option>'+clients.map(c=>`<option value="${c.id}">${c.prenom} ${c.nom}</option>`).join('');
+  updateVenteInfo();
+}
+
+function marquerLu(id) {
+  DB.update('alertes',id,{lu:true});
+  updateAlerteBadge(); load();
+}
+
+function updateVenteInfo() {
+  const medId = document.getElementById('vMed').value;
+  const qte   = parseInt(document.getElementById('vQte').value)||1;
+  const med   = DB.find('medicaments',medId);
+  const lot   = getLotFEFO(medId);
+  if(!med||!lot){ document.getElementById('vTotal').textContent='Total : 0 FCFA'; document.getElementById('vInfoLot').style.display='none'; return; }
+  const total = med.prix_vente * qte;
+  document.getElementById('vTotal').textContent = `Total : ${Fmt.currency(total)}`;
+  document.getElementById('vInfoLot').style.display = 'flex';
+  document.getElementById('vInfoLot').innerHTML = `💊 Lot FEFO : <strong>${lot.numero_lot}</strong> · Péremption : ${Fmt.date(lot.date_peremption)} · Dispo : ${lot.quantite_disponible}`;
+}
+
+function enregistrerVente() {
+  const medId  = document.getElementById('vMed').value;
+  const qte    = parseInt(document.getElementById('vQte').value)||1;
+  const mode   = document.getElementById('vMode').value;
+  const clientId = document.getElementById('vClient').value;
+  const med    = DB.find('medicaments',medId);
+  const lot    = getLotFEFO(medId);
+  if(!med||!lot){ Toast.error('Médicament ou stock introuvable'); return; }
+  if(lot.quantite_disponible < qte){ Toast.error(`Stock insuffisant. Disponible : ${lot.quantite_disponible}`); return; }
+  const montant = med.prix_vente * qte;
+  const ref = 'REC-'+new Date().getFullYear()+'-'+String(DB.get('ventes').length+1).padStart(3,'0');
+  const vente = DB.push('ventes',{ref_vente:ref,client_id:clientId||null,ordonnance_id:null,vendeur_id:user.id,caissier_id:user.id,date_vente:new Date().toISOString(),montant_total:montant,montant_remise:0,montant_paye:montant,mode_paiement:mode,statut:'completee'});
+  DB.push('lignes_vente',{vente_id:vente.id,medicament_id:medId,lot_id:lot.id,quantite:qte,prix_unitaire:med.prix_vente,montant_ligne:montant});
+  DB.update('lots',lot.id,{quantite_disponible:lot.quantite_disponible-qte});
+  DB.push('audit_logs',{user_id:user.id,action:'vente',entite:'ventes',entite_id:vente.id,details:`Vente de ${qte}x ${med.nom_commercial} — ${Fmt.currency(montant)}`});
+  checkStockAlertes();
+  Modal.close('mVenteRapide');
+  Toast.success(`✅ Vente enregistrée ! Réf: ${ref}`);
+  load();
+}
+
+load();
+</script>
+  <script src="../../js/backup.js"></script>
+  <script src="../../js/pdf.js"></script>
+  <script src="../../js/scanner.js"></script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

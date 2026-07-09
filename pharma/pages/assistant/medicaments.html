@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — 💊 Catalogue</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">💊 Catalogue</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+<div class="alert alert-info">🔗 Ce module est partagé avec la pharmacie. <a href="../pharmacien/medicaments.html" style="color:var(--primary);font-weight:700">Cliquez ici</a> pour y accéder directement.</div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('assistant');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+window.location.href=`../pharmacien/medicaments.html`;
+</script>
+</body>
+</html>

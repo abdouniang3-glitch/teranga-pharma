@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Ventes</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">🧾 Ventes au comptoir</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+<div class="alert alert-info">🔗 Module de vente — En tant que préparateur, vous pouvez vendre des médicaments <strong>en vente libre uniquement</strong>. Les médicaments sur ordonnance nécessitent la validation d'un pharmacien.</div>
+      <div class="stats-grid" id="s" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card"><div class="card-header"><span class="card-title">Mes ventes</span></div><div class="card-body" style="padding:0"><table><thead><tr><th>Réf</th><th>Date</th><th>Montant</th><th>Mode</th><th>Statut</th></tr></thead><tbody id="b"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('preparateur');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+function load(){
+  const v=DB.get('ventes').filter(x=>x.vendeur_id===user.id);
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('s').innerHTML=`<div class="stat-card"><div class="stat-icon green">🧾</div><div><div class="stat-label">Total ventes</div><div class="stat-value">${v.length}</div></div></div><div class="stat-card"><div class="stat-icon blue">💰</div><div><div class="stat-label">CA total</div><div class="stat-value">${Fmt.currency(v.reduce((s,x)=>s+x.montant_total,0))}</div></div></div><div class="stat-card"><div class="stat-icon orange">📅</div><div><div class="stat-label">Aujourd'hui</div><div class="stat-value">${v.filter(x=>x.date_vente&&x.date_vente.startsWith(today)).length}</div></div></div>`;
+  const m={especes:'💵',wave:'📱 Wave',orange_money:'📱 OM',credit:'💳'};
+  document.getElementById('b').innerHTML=v.slice().reverse().map(x=>`<tr><td><code style="font-size:11px">${x.ref_vente}</code></td><td style="font-size:12px">${Fmt.dateTime(x.date_vente)}</td><td style="font-weight:700;color:var(--primary)">${Fmt.currency(x.montant_total)}</td><td style="font-size:12px">${m[x.mode_paiement]||x.mode_paiement}</td><td>${Fmt.statutVente(x.statut)}</td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:14px;color:var(--text-muted)">Aucune vente</td></tr>';
+}
+load();
+
+</script>
+</body>
+</html>

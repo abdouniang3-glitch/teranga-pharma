@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Stocks & Lots</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">📦 Stocks & Lots</h1></div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="Modal.open('mLot')">➕ Réceptionner un lot</button>
+        <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimer</button>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="alert alert-info">📦 <strong>Méthode FEFO</strong> (First Expired, First Out) — Les lots dont la date de péremption est la plus proche sont vendus en premier (RG7). Les lots périmant dans moins de 3 mois déclenchent une alerte automatique (RG8).</div>
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <!-- Vue stock par médicament -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">Stock consolidé par médicament</span>
+          <select class="form-control" id="filterStatut" style="width:180px" onchange="load()">
+            <option value="">Tous les lots</option>
+            <option value="actif">Actifs</option>
+            <option value="alerte_peremption">Alerte péremption</option>
+            <option value="perime">Périmés</option>
+          </select>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table>
+            <thead><tr><th>Médicament</th><th>DCI</th><th>Stock total</th><th>Seuil min.</th><th>Lots actifs</th><th>Lot FEFO</th><th>Proch. péremption</th><th>Statut</th></tr></thead>
+            <tbody id="stockBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Détail des lots -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">🗂️ Détail de tous les lots</span></div>
+        <div class="card-body" style="padding:0">
+          <table>
+            <thead><tr><th>N° Lot</th><th>Médicament</th><th>Fabrication</th><th>Péremption</th><th>J restants</th><th>Qté initiale</th><th>Qté dispo</th><th>Prix achat</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="lotBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal réception lot -->
+<div class="modal-overlay" id="mLot">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff">
+      <span class="modal-title" style="color:#fff">📦 Réceptionner un nouveau lot</span>
+      <button class="modal-close" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Médicament *</label><select class="form-control" id="lMed"></select></div>
+        <div class="form-group"><label class="form-label">N° de lot *</label><input class="form-control" id="lNumero" placeholder="Ex: LOT-2025-001"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Date de fabrication</label><input type="date" class="form-control" id="lFab"></div>
+        <div class="form-group"><label class="form-label">Date de péremption *</label><input type="date" class="form-control" id="lPerem"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Quantité reçue *</label><input type="number" class="form-control" id="lQte" placeholder="Ex: 100"></div>
+        <div class="form-group"><label class="form-label">Prix d'achat unitaire *</label><input type="number" class="form-control" id="lPA" placeholder="FCFA"></div>
+      </div>
+      <div id="lAlert" class="alert alert-warning" style="display:none">⚠️ Ce lot périmera dans moins de 3 mois — alerte automatique déclenchée (RG8).</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Annuler</button>
+      <button class="btn btn-primary" onclick="receptionnerLot()">✅ Réceptionner le lot</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal retrait lot périmé -->
+<div class="modal-overlay" id="mRetrait">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><span class="modal-title">🗑️ Retirer un lot périmé</span><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-danger">⚠️ Ce lot sera retiré du stock et enregistré comme perte (RG9).</div>
+      <div class="form-group"><label class="form-label">Motif</label>
+        <select class="form-control" id="rMotif"><option value="perime">Périmé</option><option value="casse">Cassé</option><option value="rappel_sanitaire">Rappel sanitaire</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Annuler</button>
+      <button class="btn btn-danger" onclick="confirmerRetrait()">🗑️ Confirmer le retrait</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('pharmacien','assistant','preparateur','resp_stock');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+let currentLotId = null;
+
+function load() {
+  const meds = DB.get('medicaments');
+  const lots  = DB.get('lots');
+  const f     = document.getElementById('filterStatut').value;
+  const lotsFilt = f ? lots.filter(l=>l.statut===f) : lots;
+
+  const totalUnites  = lots.filter(l=>l.statut==='actif').reduce((s,l)=>s+l.quantite_disponible,0);
+  const nbAlertePerem= lots.filter(l=>l.statut==='alerte_peremption').length;
+  const nbPerimes    = lots.filter(l=>l.statut==='perime').length;
+  const valeurStock  = lots.filter(l=>l.statut==='actif').reduce((s,l)=>s+l.quantite_disponible*(l.prix_achat||0),0);
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon green">📦</div><div><div class="stat-label">Total unités</div><div class="stat-value">${totalUnites}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">⚠️</div><div><div class="stat-label">Alertes péremption</div><div class="stat-value">${nbAlertePerem}</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">💀</div><div><div class="stat-label">Lots périmés</div><div class="stat-value">${nbPerimes}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue">💰</div><div><div class="stat-label">Valeur stock</div><div class="stat-value">${Fmt.currency(valeurStock)}</div></div></div>`;
+
+  document.getElementById('stockBody').innerHTML = meds.map(m=>{
+    const mLots = lots.filter(l=>l.medicament_id===m.id&&l.statut==='actif');
+    const stock = mLots.reduce((s,l)=>s+l.quantite_disponible,0);
+    const fefo  = getLotFEFO(m.id);
+    const alerte= stock<=m.seuil_min;
+    return `<tr>
+      <td><strong>${m.nom_commercial}</strong></td>
+      <td class="text-muted text-sm">${m.dci}</td>
+      <td><span class="${alerte?'text-danger fw-700':'text-success fw-700'} ">${stock}</span></td>
+      <td>${m.seuil_min}</td>
+      <td><span class="badge badge-neutral">${mLots.length}</span></td>
+      <td style="font-size:11px">${fefo?fefo.numero_lot:'—'}</td>
+      <td style="font-size:11px">${fefo?`<span class="${Fmt.joursPeremption(fefo.date_peremption)<=90?'text-danger':'text-muted'}">${Fmt.date(fefo.date_peremption)} (${Fmt.joursPeremption(fefo.date_peremption)}j)</span>`:'—'}</td>
+      <td>${alerte?'<span class="badge badge-danger">⚠️ Critique</span>':'<span class="badge badge-success">✅ OK</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('lotBody').innerHTML = lotsFilt.map(l=>{
+    const m = DB.find('medicaments',l.medicament_id);
+    const j = Fmt.joursPeremption(l.date_peremption);
+    return `<tr>
+      <td><code style="font-size:11px">${l.numero_lot}</code></td>
+      <td>${m?m.nom_commercial:'—'}</td>
+      <td style="font-size:12px">${Fmt.date(l.date_fabrication)}</td>
+      <td style="font-size:12px">${Fmt.date(l.date_peremption)}</td>
+      <td><span class="${j<=90?'text-danger fw-700':j<=180?'text-warning':''}">${j<=0?'PÉRIMÉ':j+'j'}</span></td>
+      <td>${l.quantite_initiale}</td>
+      <td><strong>${l.quantite_disponible}</strong></td>
+      <td>${Fmt.currency(l.prix_achat)}</td>
+      <td>${Fmt.statutLot(l.statut)}</td>
+      <td>${l.statut!=='perime'?`<button class="btn btn-danger btn-xs" onclick="openRetrait('${l.id}')">🗑️</button>`:''}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text-muted)">Aucun lot</td></tr>';
+
+  document.getElementById('lMed').innerHTML = meds.map(m=>`<option value="${m.id}">${m.nom_commercial}</option>`).join('');
+}
+
+document.getElementById('lPerem').addEventListener('change', function(){
+  const j = Fmt.joursPeremption(this.value);
+  document.getElementById('lAlert').style.display = j<=90 ? 'flex' : 'none';
+});
+
+function receptionnerLot(){
+  const medId  = document.getElementById('lMed').value;
+  const numero = document.getElementById('lNumero').value.trim();
+  const peremp = document.getElementById('lPerem').value;
+  const qte    = parseInt(document.getElementById('lQte').value)||0;
+  const pa     = parseInt(document.getElementById('lPA').value)||0;
+  if(!numero||!peremp||!qte){Toast.error('Remplissez tous les champs obligatoires');return}
+  const j = Fmt.joursPeremption(peremp);
+  const statut = j<=0?'perime':j<=90?'alerte_peremption':'actif';
+  DB.push('lots',{medicament_id:medId,numero_lot:numero,date_fabrication:document.getElementById('lFab').value||null,date_peremption:peremp,quantite_initiale:qte,quantite_disponible:qte,prix_achat:pa,statut});
+  if(statut==='alerte_peremption') DB.push('alertes',{type:'peremption',medicament_id:medId,message:`Lot ${numero} — Péremption dans ${j} jours`,lu:false,dest_role:'resp_stock'});
+  DB.push('audit_logs',{user_id:user.id,action:'reception_lot',entite:'lots',details:`Lot ${numero} réceptionné — ${qte} unités`});
+  Modal.close('mLot');
+  Toast.success(`✅ Lot ${numero} réceptionné — ${qte} unités`);
+  load();
+}
+
+function openRetrait(id){currentLotId=id;Modal.open('mRetrait')}
+function confirmerRetrait(){
+  const lot = DB.find('lots',currentLotId); if(!lot)return;
+  const motif = document.getElementById('rMotif').value;
+  const m = DB.find('medicaments',lot.medicament_id);
+  const valeur = lot.quantite_disponible*(lot.prix_achat||0);
+  DB.push('pertes',{lot_id:currentLotId,medicament_id:lot.medicament_id,quantite:lot.quantite_disponible,valeur_perdue:valeur,motif,enregistre_par:user.id});
+  DB.update('lots',currentLotId,{statut:'perime',quantite_disponible:0});
+  DB.push('audit_logs',{user_id:user.id,action:'retrait_lot',entite:'lots',entite_id:currentLotId,details:`Lot ${lot.numero_lot} (${m?m.nom_commercial:'?'}) retiré — Motif: ${motif} — Perte: ${Fmt.currency(valeur)}`});
+  Modal.close('mRetrait');
+  Toast.warning(`Lot ${lot.numero_lot} retiré. Perte enregistrée : ${Fmt.currency(valeur)}`);
+  load();
+}
+
+load();
+</script>
+  <script src="../../js/backup.js"></script>
+  <script src="../../js/pdf.js"></script>
+  <script src="../../js/scanner.js"></script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

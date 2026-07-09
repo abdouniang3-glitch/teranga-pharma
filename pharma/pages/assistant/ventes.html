@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Ventes (Assistant)</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">🧾 Ventes au comptoir</h1></div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="Modal.open('mVente')">➕ Nouvelle vente</button>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">Mes ventes</span>
+          <input type="date" class="form-control" id="filterDate" style="width:160px" onchange="load()">
+        </div>
+        <div class="card-body" style="padding:0">
+          <table>
+            <thead><tr><th>Réf</th><th>Date/Heure</th><th>Client</th><th>Montant</th><th>Mode</th><th>Ordonnance</th><th>Statut</th></tr></thead>
+            <tbody id="b"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal nouvelle vente -->
+<div class="modal-overlay" id="mVente">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#0a2818,#1a5c30);color:#fff">
+      <span class="modal-title" style="color:#fff">🧾 Nouvelle vente</span>
+      <button class="modal-close" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Client</label><select class="form-control" id="vClient"><option value="">— Passage —</option></select></div>
+        <div class="form-group"><label class="form-label">Ordonnance</label><select class="form-control" id="vOrd"><option value="">— Aucune —</option></select></div>
+      </div>
+      <div id="ordAlert" class="alert alert-warning" style="display:none">⚠️ Médicament sur ordonnance dans le panier — une ordonnance valide est requise (RG19).</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Médicament</label><select class="form-control" id="vMed"></select></div>
+        <div class="form-group"><label class="form-label">Quantité</label><input type="number" class="form-control" id="vQte" value="1" min="1"></div>
+      </div>
+      <button class="btn btn-outline btn-sm mb-3" onclick="addLigne()">➕ Ajouter au panier</button>
+      <div id="panier" style="border:1px solid var(--border);border-radius:8px;min-height:55px;padding:10px;margin-bottom:12px">
+        <p class="text-sm text-muted">Panier vide</p>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Mode paiement</label>
+          <select class="form-control" id="vMode">
+            <option value="especes">💵 Espèces</option>
+            <option value="wave">📱 Wave</option>
+            <option value="orange_money">📱 Orange Money</option>
+            <option value="credit">💳 Crédit</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Remise (%)</label>
+          <input type="number" class="form-control" id="vRemise" value="0" min="0" max="100" oninput="updateTotal()">
+        </div>
+      </div>
+      <div style="text-align:right;font-size:18px;font-weight:700;color:var(--primary);padding:6px 0" id="vTotal">Total : 0 FCFA</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Annuler</button>
+      <button class="btn btn-primary" onclick="finaliserVente()">✅ Finaliser la vente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal reçu -->
+<div class="modal-overlay" id="mRecu">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header"><span class="modal-title">🧾 Reçu</span><button class="modal-close">✕</button></div>
+    <div class="modal-body" id="recuBody"></div>
+    <div class="modal-footer"><button class="btn btn-outline modal-close">Fermer</button><button class="btn btn-primary" onclick="window.print()">🖨️ Imprimer</button></div>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('assistant');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+let panier = [];
+
+function load() {
+  const ventes  = DB.get('ventes').filter(v => v.vendeur_id === user.id);
+  const clients = DB.get('clients');
+  const meds    = DB.get('medicaments');
+  const ords    = DB.get('ordonnances').filter(o => o.statut === 'en_attente');
+  const today   = new Date().toISOString().split('T')[0];
+  const fd      = document.getElementById('filterDate').value;
+  let list      = ventes.slice().reverse();
+  if (fd) list  = list.filter(v => v.date_vente && v.date_vente.startsWith(fd));
+
+  const caJour  = ventes.filter(v => v.date_vente && v.date_vente.startsWith(today)).reduce((s,v)=>s+v.montant_total,0);
+  const nbJour  = ventes.filter(v => v.date_vente && v.date_vente.startsWith(today)).length;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon green">💰</div><div><div class="stat-label">CA mes ventes aujourd'hui</div><div class="stat-value">${Fmt.currency(caJour)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue">🧾</div><div><div class="stat-label">Mes ventes aujourd'hui</div><div class="stat-value">${nbJour}</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">📋</div><div><div class="stat-label">Total mes ventes</div><div class="stat-value">${ventes.length}</div></div></div>`;
+
+  const mIcon = {especes:'💵',wave:'📱 Wave',orange_money:'📱 OM',credit:'💳'};
+  document.getElementById('b').innerHTML = list.map(v => {
+    const c = clients.find(x => x.id === v.client_id);
+    return `<tr>
+      <td><code style="font-size:11px">${v.ref_vente}</code></td>
+      <td style="font-size:12px">${Fmt.dateTime(v.date_vente)}</td>
+      <td style="font-size:12px">${c ? c.prenom+' '+c.nom : 'Passage'}</td>
+      <td style="font-weight:700;color:var(--primary)">${Fmt.currency(v.montant_total)}</td>
+      <td style="font-size:12px">${mIcon[v.mode_paiement]||v.mode_paiement}</td>
+      <td>${v.ordonnance_id ? '<span class="badge badge-warning">📋 Oui</span>' : '—'}</td>
+      <td>${Fmt.statutVente(v.statut)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--text-muted)">Aucune vente</td></tr>';
+
+  // Peupler selects
+  document.getElementById('vClient').innerHTML = '<option value="">— Passage —</option>' + clients.map(c => `<option value="${c.id}">${c.prenom} ${c.nom}</option>`).join('');
+  document.getElementById('vMed').innerHTML    = meds.map(m => `<option value="${m.id}" data-ord="${m.sur_ordonnance?1:0}">${m.nom_commercial} ${m.sur_ordonnance?'(Ord.)':''} — Stock: ${getStockTotal(m.id)}</option>`).join('');
+  document.getElementById('vOrd').innerHTML    = '<option value="">— Aucune —</option>' + ords.map(o => {
+    const c = clients.find(x=>x.id===o.client_id);
+    return `<option value="${o.id}">${o.ref_ordonnance} — ${c?c.nom:'?'}</option>`;
+  }).join('');
+}
+
+function addLigne() {
+  const medId = document.getElementById('vMed').value;
+  const qte   = parseInt(document.getElementById('vQte').value)||1;
+  const med   = DB.find('medicaments', medId);
+  const lot   = getLotFEFO(medId);
+  if (!med || !lot) { Toast.error('Stock insuffisant ou médicament introuvable'); return; }
+  if (lot.quantite_disponible < qte) { Toast.error(`Stock insuffisant. Disponible: ${lot.quantite_disponible}`); return; }
+  const existing = panier.findIndex(p => p.medId === medId);
+  if (existing >= 0) { panier[existing].qte += qte; panier[existing].montant = panier[existing].qte * med.prix_vente; }
+  else panier.push({medId, lotId:lot.id, nom:med.nom_commercial, sur_ordonnance:med.sur_ordonnance, qte, pu:med.prix_vente, montant:qte*med.prix_vente});
+  renderPanier();
+  document.getElementById('ordAlert').style.display = panier.some(p=>p.sur_ordonnance) ? 'flex' : 'none';
+}
+
+function renderPanier() {
+  if (!panier.length) { document.getElementById('panier').innerHTML='<p class="text-sm text-muted">Panier vide</p>'; updateTotal(); return; }
+  document.getElementById('panier').innerHTML = panier.map((p,i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px">${p.sur_ordonnance?'📋':''} <strong>${p.nom}</strong> × ${p.qte}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:700;color:var(--primary)">${Fmt.currency(p.montant)}</span>
+        <button onclick="panier.splice(${i},1);renderPanier()" style="background:none;border:none;cursor:pointer;color:var(--danger)">✕</button>
+      </div>
+    </div>`).join('');
+  updateTotal();
+}
+
+function updateTotal() {
+  const remisePct = parseInt(document.getElementById('vRemise').value)||0;
+  const sous = panier.reduce((s,p)=>s+p.montant,0);
+  const remise = Math.round(sous*remisePct/100);
+  document.getElementById('vTotal').textContent = `Total : ${Fmt.currency(sous-remise)}${remise?` (remise: -${Fmt.currency(remise)})`:''}`
+}
+
+function finaliserVente() {
+  if (!panier.length) { Toast.error('Panier vide'); return; }
+  const needOrd = panier.some(p => p.sur_ordonnance);
+  const ordId   = document.getElementById('vOrd').value;
+  if (needOrd && !ordId) { Toast.error('Une ordonnance est requise (RG19)'); return; }
+
+  const remisePct = parseInt(document.getElementById('vRemise').value)||0;
+  const sous   = panier.reduce((s,p)=>s+p.montant,0);
+  const remise = Math.round(sous*remisePct/100);
+  const total  = sous - remise;
+  const mode   = document.getElementById('vMode').value;
+  const clientId = document.getElementById('vClient').value;
+
+  if (mode === 'credit') {
+    const c = DB.find('clients', clientId);
+    if (!clientId || !c) { Toast.error('Sélectionnez un client pour la vente à crédit'); return; }
+    const dispo = (c.plafond_credit||0) - (c.solde_credit||0);
+    if (total > dispo) { Toast.error(`Plafond crédit dépassé. Disponible: ${Fmt.currency(dispo)}`); return; }
+    DB.update('clients', clientId, {solde_credit: (c.solde_credit||0)+total});
+  }
+
+  const ref = 'REC-'+new Date().getFullYear()+'-'+String(DB.get('ventes').length+1).padStart(3,'0');
+  const vente = DB.push('ventes', {
+    ref_vente:ref, client_id:clientId||null, ordonnance_id:ordId||null,
+    vendeur_id:user.id, caissier_id:user.id, date_vente:new Date().toISOString(),
+    montant_total:total, montant_remise:remise, montant_paye:total,
+    mode_paiement:mode, statut:'completee'
+  });
+  panier.forEach(p => {
+    DB.push('lignes_vente',{vente_id:vente.id,medicament_id:p.medId,lot_id:p.lotId,quantite:p.qte,prix_unitaire:p.pu,montant_ligne:p.montant});
+    const lot = DB.find('lots',p.lotId);
+    if(lot) DB.update('lots',p.lotId,{quantite_disponible:lot.quantite_disponible-p.qte});
+  });
+  if (ordId) DB.update('ordonnances', ordId, {statut:'delivree',date_delivrance:new Date().toISOString().split('T')[0],nb_delivrances:(DB.find('ordonnances',ordId)?.nb_delivrances||0)+1});
+  DB.push('audit_logs',{user_id:user.id,action:'vente',entite:'ventes',entite_id:vente.id,details:`Vente ${ref} — ${Fmt.currency(total)} — ${mode}`});
+  checkStockAlertes();
+  panier = []; renderPanier();
+  Modal.close('mVente');
+  Toast.success(`✅ Vente ${ref} enregistrée !`);
+  // Afficher reçu
+  const clients = DB.get('clients');
+  const lignes  = DB.get('lignes_vente').filter(l=>l.vente_id===vente.id);
+  const c       = clients.find(x=>x.id===clientId);
+  document.getElementById('recuBody').innerHTML=`
+    <div style="text-align:center;margin-bottom:12px"><div style="font-size:20px">💊</div><div style="font-weight:700">TERANGA PHARMA</div><div class="text-xs text-muted">Grand Yoff, Dakar</div></div>
+    <hr><div style="font-size:12px;margin:8px 0"><div><strong>Réf :</strong> ${ref}</div><div><strong>Date :</strong> ${Fmt.dateTime(vente.date_vente)}</div><div><strong>Client :</strong> ${c?c.prenom+' '+c.nom:'Passage'}</div></div><hr>
+    <table style="width:100%;font-size:12px;margin:8px 0">${lignes.map(l=>{const m=DB.find('medicaments',l.medicament_id);return`<tr><td>${m?m.nom_commercial:'?'}</td><td style="text-align:center">×${l.quantite}</td><td style="text-align:right;font-weight:700">${Fmt.currency(l.montant_ligne)}</td></tr>`}).join('')}</table>
+    <hr><div style="font-size:13px;margin:8px 0">${remise?`<div>Remise : -${Fmt.currency(remise)}</div>`:''}<div style="font-size:15px;font-weight:700;color:var(--primary)">TOTAL : ${Fmt.currency(total)}</div></div>
+    <hr><div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">Merci de votre confiance !</div>`;
+  Modal.open('mRecu');
+  load();
+}
+
+load();
+</script>
+</body>
+</html>

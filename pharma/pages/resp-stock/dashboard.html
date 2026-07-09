@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Tableau de bord</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">📦 Responsable Stock</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+
+      <div class="hero-banner hero-stock">
+        <div class="hero-left">
+          <div class="hero-tag"><span class="dot"></span> Responsable Stock</div>
+          <div class="hero-title">Bonjour, <em id="hNom">Resp. Stock</em></div>
+          <div class="hero-sub">Stocks, lots, commandes et péremptions</div>
+          <div class="hero-stats">
+            <div class="hero-stat"><div class="v" id="hA">0</div><div class="l">Alertes actives</div></div>
+            <div class="hero-stat"><div class="v" id="hP">0</div><div class="l">Lots en alerte péremption</div></div>
+            <div class="hero-stat"><div class="v" id="hC">0</div><div class="l">Commandes en cours</div></div>
+          </div>
+        </div>
+        <div class="hero-right">
+          <svg viewBox="0 0 220 180" width="220" height="180" xmlns="http://www.w3.org/2000/svg">
+            <rect x="40" y="70" width="55" height="80" rx="6" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.18)" stroke-width="1.5"/>
+            <rect x="85" y="85" width="55" height="65" rx="6" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.14)" stroke-width="1.5"/>
+            <rect x="130" y="100" width="55" height="50" rx="6" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.12)" stroke-width="1.5"/>
+            <text x="67" y="120" text-anchor="middle" font-size="22" fill="rgba(245,158,11,.8)">📦</text>
+            <circle cx="185" cy="55" r="20" fill="rgba(220,38,38,.25)" stroke="rgba(220,38,38,.5)" stroke-width="1.5"/>
+            <text x="185" y="62" text-anchor="middle" font-size="14" fill="#fff">⚠️</text>
+          </svg>
+        </div>
+      </div>
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="grid-2 mb-4">
+        <div class="card"><div class="card-header"><span class="card-title">🔔 Alertes actives</span><span class="badge badge-danger" id="cntA">0</span></div><div class="card-body" id="alertesList"></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">⚠️ Lots proches péremption</span></div><div class="card-body" id="peremList"></div></div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-title">📦 Commandes fournisseurs</span><a href="commandes.html" class="btn btn-primary btn-sm">Gérer</a></div><div class="card-body" style="padding:0"><table><thead><tr><th>Réf</th><th>Fournisseur</th><th>Date</th><th>Statut</th></tr></thead><tbody id="cmdBody"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('resp_stock');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+document.getElementById('hNom').textContent=user.nom.split(' ')[0];
+function load(){
+  const alertes=DB.get('alertes').filter(a=>!a.lu);
+  const lots=DB.get('lots');
+  const commandes=DB.get('commandes_fournisseurs');
+  const enCours=commandes.filter(c=>c.statut==='envoyee'||c.statut==='partiellement_livree');
+  document.getElementById('hA').textContent=alertes.length;
+  document.getElementById('hP').textContent=lots.filter(l=>l.statut==='alerte_peremption').length;
+  document.getElementById('hC').textContent=enCours.length;
+  const meds=DB.get('medicaments');
+  const stockTotal=lots.filter(l=>l.statut==='actif').reduce((s,l)=>s+l.quantite_disponible,0);
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon red">🔔</div><div><div class="stat-label">Alertes actives</div><div class="stat-value">${alertes.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">⚠️</div><div><div class="stat-label">Lots en alerte péremption</div><div class="stat-value">${lots.filter(l=>l.statut==='alerte_peremption').length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue">📦</div><div><div class="stat-label">Unités en stock</div><div class="stat-value">${stockTotal}</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">🚚</div><div><div class="stat-label">Commandes en cours</div><div class="stat-value">${enCours.length}</div></div></div>`;
+  document.getElementById('cntA').textContent=alertes.length;
+  document.getElementById('alertesList').innerHTML=alertes.length?alertes.map(a=>`<div class="alerte-pill ${a.type==='stock_faible'?'danger':'warning'}"><span>${{stock_faible:'📦',peremption:'⚠️',credit_retard:'💳'}[a.type]||'🔔'}</span><div><div style="font-size:12.5px;font-weight:600">${a.message}</div></div><button onclick="DB.update('alertes','${a.id}',{lu:true});load()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-muted)">✕</button></div>`).join(''):'<p class="text-muted text-sm text-center" style="padding:16px">✅ Aucune alerte</p>';
+  const alertLots=lots.filter(l=>l.statut==='alerte_peremption');
+  document.getElementById('peremList').innerHTML=alertLots.length?alertLots.map(l=>{const m=DB.find('medicaments',l.medicament_id);const j=Fmt.joursPeremption(l.date_peremption);return`<div class="alerte-pill ${j<=30?'danger':'warning'}"><span>💊</span><div><div style="font-weight:600;font-size:12.5px">${m?m.nom_commercial:'—'} — ${l.numero_lot}</div><div class="text-xs">${Fmt.date(l.date_peremption)} · ${j}j · ${l.quantite_disponible} unités</div></div></div>`}).join(''):'<p class="text-muted text-sm text-center" style="padding:16px">✅ Aucun lot en alerte</p>';
+  const fours=DB.get('fournisseurs');
+  document.getElementById('cmdBody').innerHTML=commandes.slice(-5).reverse().map(c=>{const f=fours.find(x=>x.id===c.fournisseur_id);return`<tr><td><code style="font-size:11px">${c.ref_commande}</code></td><td style="font-size:12px">${f?f.raison_sociale:'—'}</td><td style="font-size:12px">${Fmt.date(c.date_commande)}</td><td>${Fmt.statutCommande(c.statut)}</td></tr>`}).join('')||'<tr><td colspan="4" style="text-align:center;padding:14px;color:var(--text-muted)">Aucune commande</td></tr>';
+}
+load();
+
+</script>
+</body>
+</html>

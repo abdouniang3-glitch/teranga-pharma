@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Commandes</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">📦 Commandes fournisseurs</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(4,1fr)"></div>
+      <div class="card"><div class="card-header"><span class="card-title">Toutes les commandes</span><button class="btn btn-primary btn-sm" onclick="Modal.open('mCmd')">➕ Nouvelle commande</button></div><div class="card-body" style="padding:0"><table><thead><tr><th>Réf</th><th>Fournisseur</th><th>Date</th><th>Livraison prévue</th><th>Auto</th><th>Statut</th><th></th></tr></thead><tbody id="b"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+
+function load(){
+  const cmds=DB.get('commandes_fournisseurs');const fours=DB.get('fournisseurs');
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon blue">📋</div><div><div class="stat-label">Total commandes</div><div class="stat-value">${cmds.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">📤</div><div><div class="stat-label">Envoyées</div><div class="stat-value">${cmds.filter(c=>c.statut==='envoyee').length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-label">Livrées</div><div class="stat-value">${cmds.filter(c=>c.statut==='livree').length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">🤖</div><div><div class="stat-label">Auto-générées</div><div class="stat-value">${cmds.filter(c=>c.generee_auto).length}</div></div></div>`;
+  document.getElementById('b').innerHTML=cmds.slice().reverse().map(c=>{const f=fours.find(x=>x.id===c.fournisseur_id);return`<tr><td><code style="font-size:11px">${c.ref_commande}</code></td><td style="font-size:12.5px">${f?f.raison_sociale:'—'}</td><td style="font-size:12px">${Fmt.date(c.date_commande)}</td><td style="font-size:12px">${Fmt.date(c.date_livraison_prevue)}</td><td>${c.generee_auto?'<span class="badge badge-primary" style="font-size:10px">🤖 Auto</span>':'—'}</td><td>${Fmt.statutCommande(c.statut)}</td><td>${c.statut==='envoyee'?`<button class="btn btn-success btn-xs" onclick="livrer('${c.id}')">📦 Livré</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-muted)">Aucune commande</td></tr>';
+  document.getElementById('cF').innerHTML=fours.map(f=>`<option value="${f.id}">${f.raison_sociale}</option>`).join('');
+}
+function creerCmd(){
+  const fId=document.getElementById('cF').value;
+  const ref='CMD-'+new Date().getFullYear()+'-'+String(DB.get('commandes_fournisseurs').length+1).padStart(3,'0');
+  DB.push('commandes_fournisseurs',{fournisseur_id:fId,ref_commande:ref,statut:'brouillon',date_commande:new Date().toISOString().split('T')[0],date_livraison_prevue:document.getElementById('cDL').value,generee_auto:false,creee_par:user.id,notes:document.getElementById('cN').value});
+  Modal.close('mCmd'); Toast.success('✅ Commande '+ref+' créée'); load();
+}
+function livrer(id){DB.update('commandes_fournisseurs',id,{statut:'livree'});Toast.success('✅ Commande marquée livrée');load();}
+load();
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('resp_stock');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+<div class="modal-overlay" id="mCmd"><div class="modal">
+  <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff"><span class="modal-title" style="color:#fff">➕ Nouvelle commande</span><button class="modal-close" style="color:#fff">✕</button></div>
+  <div class="modal-body">
+    <div class="form-group"><label class="form-label">Fournisseur *</label><select class="form-control" id="cF"></select></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Date livraison prévue</label><input type="date" class="form-control" id="cDL"></div><div class="form-group"><label class="form-label">Notes</label><input class="form-control" id="cN" placeholder="Optionnel"></div></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-outline modal-close">Annuler</button><button class="btn btn-primary" onclick="creerCmd()">✅ Créer</button></div>
+</div></div>
+</script>
+</body>
+</html>

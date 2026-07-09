@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Crédits clients</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">💳 Gestion des crédits clients</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+
+      <div class="alert alert-warning">⚠️ RG28 : Tout client dont le crédit n'est pas remboursé après 30 jours est automatiquement signalé ici. RG24 : Le plafond de crédit est défini par le pharmacien titulaire.</div>
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card"><div class="card-header"><span class="card-title">Clients avec crédit en cours</span></div><div class="card-body" style="padding:0"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Plafond</th><th>Solde dû</th><th>Disponible</th><th>Statut</th><th></th></tr></thead><tbody id="b"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('caissier');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+function load(){
+  const clients=DB.get('clients');
+  const avecCredit=clients.filter(c=>(c.solde_credit||0)>0);
+  const totalCredit=avecCredit.reduce((s,c)=>s+(c.solde_credit||0),0);
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon orange">💳</div><div><div class="stat-label">Clients avec crédit</div><div class="stat-value">${avecCredit.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">💸</div><div><div class="stat-label">Total crédit dû</div><div class="stat-value">${Fmt.currency(totalCredit)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">👥</div><div><div class="stat-label">Clients total</div><div class="stat-value">${clients.length}</div></div></div>`;
+  document.getElementById('b').innerHTML=avecCredit.map(c=>{const dispo=(c.plafond_credit||0)-(c.solde_credit||0);return`<tr>
+    <td><strong style="font-size:13px">${c.prenom} ${c.nom}</strong></td>
+    <td style="font-size:12px">${c.telephone||'—'}</td>
+    <td>${Fmt.currency(c.plafond_credit||0)}</td>
+    <td class="text-danger fw-700">${Fmt.currency(c.solde_credit||0)}</td>
+    <td style="color:${dispo<=0?'var(--danger)':'var(--success)'}; font-weight:600">${Fmt.currency(dispo)}</td>
+    <td><span class="badge badge-danger">⚠️ En cours</span></td>
+    <td><button class="btn btn-success btn-xs" onclick="rembourser('${c.id}')">💵 Rembourser</button></td>
+  </tr>`}).join('')||'<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--success)">✅ Aucun crédit en cours</td></tr>';
+}
+function rembourser(id){
+  const c=DB.find('clients',id);if(!c)return;
+  const m=prompt(`Montant du remboursement pour ${c.prenom} ${c.nom} (solde: ${Fmt.currency(c.solde_credit)}) :`, c.solde_credit);
+  if(!m||isNaN(m))return;
+  const montant=Math.min(parseFloat(m),c.solde_credit);
+  DB.update('clients',id,{solde_credit:Math.max(0,(c.solde_credit||0)-montant)});
+  DB.push('audit_logs',{user_id:user.id,action:'remboursement_credit',entite:'clients',entite_id:id,details:`Remboursement ${Fmt.currency(montant)} — Solde restant: ${Fmt.currency(Math.max(0,c.solde_credit-montant))}`});
+  Toast.success(`✅ Remboursement de ${Fmt.currency(montant)} enregistré`);
+  load();
+}
+load();
+
+</script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

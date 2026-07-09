@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Traçabilité</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar"><div class="topbar-left"><h1 class="topbar-title">🔍 Journal de Traçabilité (RG36)</h1></div></header>
+    <main class="page-content">
+      <div class="alert alert-info">🔒 RG36 : Toute opération (vente, commande, réception, perte) est horodatée et tracée par l'agent qui l'a effectuée.</div>
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card"><div class="card-header"><span class="card-title">Historique complet</span><select class="form-control" id="fa" style="width:200px" onchange="render()"><option value="">Toutes actions</option><option value="vente">Ventes</option><option value="reception_lot">Réceptions</option><option value="retrait_lot">Retraits</option><option value="enregistrement_ordonnance">Ordonnances</option></select></div><div class="card-body" style="padding:0"><table><thead><tr><th>Date/Heure</th><th>Action</th><th>Auteur</th><th>Détails</th></tr></thead><tbody id="b"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+<script src="../js/app.js"></script>
+<script src="../js/sidebar.js"></script>
+<script src="../js/wolof.js"></script>
+<script src="../js/api.js"></script>
+<script>
+const user=Auth.getUser();if(!user){window.location.href='../index.html'}
+Sidebar.render('sidebar');
+function render(){
+  let logs=DB.get('audit_logs').slice().reverse();
+  const fa=document.getElementById('fa').value;if(fa) logs=logs.filter(l=>l.action===fa);
+  const accs=AccountManager.getAll();
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon blue">🔍</div><div><div class="stat-label">Total opérations</div><div class="stat-value">${DB.get('audit_logs').length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">🧾</div><div><div class="stat-label">Ventes tracées</div><div class="stat-value">${DB.get('audit_logs').filter(l=>l.action==='vente').length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">📦</div><div><div class="stat-label">Réceptions tracées</div><div class="stat-value">${DB.get('audit_logs').filter(l=>l.action==='reception_lot').length}</div></div></div>`;
+  const icons={vente:'🧾',reception_lot:'📦',retrait_lot:'🗑️',enregistrement_ordonnance:'📋',remboursement_credit:'💳',delivrance_ordonnance:'✅'};
+  document.getElementById('b').innerHTML=logs.map(l=>{const a=accs.find(x=>x.id===l.user_id);return`<tr><td style="font-size:12px">${Fmt.dateTime(l.created_at)}</td><td><span class="badge badge-neutral" style="font-size:10px">${icons[l.action]||'📋'} ${l.action.replace(/_/g,' ')}</span></td><td style="font-size:12px">${a?a.nom:'—'}</td><td style="font-size:12px">${l.details||'—'}</td></tr>`}).join('')||'<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted)">Aucune opération</td></tr>';
+}
+render();
+</script>
+</body>
+</html>

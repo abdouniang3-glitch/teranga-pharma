@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Ordonnances</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">📋 Ordonnances</h1></div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="Modal.open('mOrd')">➕ Enregistrer ordonnance</button>
+      </div>
+    </header>
+    <main class="page-content">
+
+      <div class="alert alert-info">
+        📋 <strong>RG19–RG21 :</strong> Toute ordonnance est archivée avant délivrance. Une ordonnance non renouvelable ne peut être délivrée qu'une seule fois. Les ordonnances renouvelables sont limitées au nombre de renouvellements autorisés par le médecin.
+      </div>
+
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(4,1fr)"></div>
+
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">Toutes les ordonnances</span>
+          <div style="display:flex;gap:8px">
+            <select class="form-control" id="filterStatut" style="width:180px" onchange="load()">
+              <option value="">Tous statuts</option>
+              <option value="en_attente">En attente</option>
+              <option value="delivree">Délivrée</option>
+              <option value="expiree">Expirée</option>
+            </select>
+            <input class="form-control" id="search" placeholder="🔍 Client / réf..." style="width:180px" oninput="load()">
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table>
+            <thead><tr><th>Référence</th><th>Client</th><th>Médecin</th><th>Date prescription</th><th>Date délivrance</th><th>Renouvelable</th><th>Délivrances</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="b"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal enregistrement ordonnance -->
+<div class="modal-overlay" id="mOrd">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff">
+      <span class="modal-title" style="color:#fff">📋 Enregistrer une ordonnance</span>
+      <button class="modal-close" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Client *</label><select class="form-control" id="oClient"></select></div>
+        <div class="form-group"><label class="form-label">Référence ordonnance *</label><input class="form-control" id="oRef" placeholder="Ex: ORD-2025-003"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Médecin prescripteur *</label><input class="form-control" id="oMedecin" placeholder="Ex: Dr Sall Abdou"></div>
+        <div class="form-group"><label class="form-label">Spécialité</label><input class="form-control" id="oSpecialite" placeholder="Ex: Médecin généraliste"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Date de prescription *</label><input type="date" class="form-control" id="oDatePrescr"></div>
+        <div class="form-group"><label class="form-label">Renouvelable ?</label>
+          <select class="form-control" id="oRenou" onchange="toggleRenouv()">
+            <option value="0">Non — Délivrance unique</option>
+            <option value="1">Oui — Renouvelable</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" id="nbRenouvField" style="display:none">
+        <label class="form-label">Nombre de renouvellements max.</label>
+        <input type="number" class="form-control" id="oNbRenou" value="3" min="1" max="12">
+      </div>
+      <div class="form-group"><label class="form-label">Notes / posologie</label><textarea class="form-control" id="oNotes" rows="2" placeholder="Posologie, durée du traitement..."></textarea></div>
+
+      <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+        <div class="flex-between mb-2"><strong style="font-size:13px">Médicaments prescrits</strong><button class="btn btn-outline btn-xs" onclick="addLignePrescr()">➕ Ajouter</button></div>
+        <div id="lignesPrescr"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Annuler</button>
+      <button class="btn btn-primary" onclick="saveOrd()">✅ Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal détail ordonnance -->
+<div class="modal-overlay" id="mDetail">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><span class="modal-title">📋 Détail de l'ordonnance</span><button class="modal-close">✕</button></div>
+    <div class="modal-body" id="detailBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Fermer</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimer</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('pharmacien','assistant');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+let lignesPrescr = [];
+
+function load() {
+  const ords    = DB.get('ordonnances');
+  const clients = DB.get('clients');
+  const search  = document.getElementById('search').value.toLowerCase();
+  const filt    = document.getElementById('filterStatut').value;
+
+  let list = ords.slice();
+  if (filt)   list = list.filter(o => o.statut === filt);
+  if (search) list = list.filter(o => {
+    const c = clients.find(x => x.id === o.client_id);
+    return o.ref_ordonnance.toLowerCase().includes(search)
+      || (c && (c.nom + ' ' + c.prenom).toLowerCase().includes(search));
+  });
+  list = list.reverse();
+
+  const total      = ords.length;
+  const enAttente  = ords.filter(o => o.statut === 'en_attente').length;
+  const delivrees  = ords.filter(o => o.statut === 'delivree').length;
+  const renouvFlag = ords.filter(o => o.renouvelable).length;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon blue">📋</div><div><div class="stat-label">Total</div><div class="stat-value">${total}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">⏳</div><div><div class="stat-label">En attente</div><div class="stat-value">${enAttente}</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-label">Délivrées</div><div class="stat-value">${delivrees}</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">🔄</div><div><div class="stat-label">Renouvelables</div><div class="stat-value">${renouvFlag}</div></div></div>`;
+
+  document.getElementById('b').innerHTML = list.map(o => {
+    const c = clients.find(x => x.id === o.client_id);
+    const canDeliver = o.statut === 'en_attente' ||
+      (o.renouvelable && o.nb_delivrances < (o.nb_renouvellements_max || 1));
+    return `<tr>
+      <td><code style="font-size:11px">${o.ref_ordonnance}</code></td>
+      <td style="font-size:12.5px">${c ? c.prenom + ' ' + c.nom : '—'}</td>
+      <td style="font-size:12px">${o.medecin_nom || '—'}<div class="text-xs text-muted">${o.medecin_specialite || ''}</div></td>
+      <td style="font-size:12px">${Fmt.date(o.date_prescription)}</td>
+      <td style="font-size:12px">${o.date_delivrance ? Fmt.date(o.date_delivrance) : '—'}</td>
+      <td style="text-align:center">${o.renouvelable
+        ? `<span class="badge badge-primary">🔄 Oui (${o.nb_renouvellements_max}x)</span>`
+        : '<span class="badge badge-neutral">Non</span>'}</td>
+      <td style="text-align:center"><span class="badge badge-neutral">${o.nb_delivrances || 0}/${o.renouvelable ? (o.nb_renouvellements_max || 1) : 1}</span></td>
+      <td>${Fmt.statutOrd(o.statut)}</td>
+      <td style="display:flex;gap:5px">
+        <button class="btn btn-outline btn-xs" onclick="voirDetail('${o.id}')">👁️</button>
+        ${canDeliver ? `<button class="btn btn-success btn-xs" onclick="marquerDelivree('${o.id}')">✅ Délivrer</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted)">Aucune ordonnance</td></tr>';
+
+  // Pré-remplir selects modal
+  document.getElementById('oClient').innerHTML = clients.map(c => `<option value="${c.id}">${c.prenom} ${c.nom}</option>`).join('');
+  const today = new Date().toISOString().split('T')[0];
+  if (!document.getElementById('oDatePrescr').value) document.getElementById('oDatePrescr').value = today;
+
+  renderLignesPrescr();
+}
+
+function toggleRenouv() {
+  const val = document.getElementById('oRenou').value;
+  document.getElementById('nbRenouvField').style.display = val === '1' ? 'block' : 'none';
+}
+
+function addLignePrescr() {
+  const meds = DB.get('medicaments');
+  lignesPrescr.push({ medId: meds[0]?.id || '', qte: 1, posologie: '' });
+  renderLignesPrescr();
+}
+
+function renderLignesPrescr() {
+  const meds = DB.get('medicaments');
+  const zone = document.getElementById('lignesPrescr');
+  if (!lignesPrescr.length) {
+    zone.innerHTML = '<p class="text-sm text-muted">Aucun médicament ajouté</p>';
+    return;
+  }
+  zone.innerHTML = lignesPrescr.map((l, i) => `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <select class="form-control" style="flex:2" onchange="lignesPrescr[${i}].medId=this.value">
+        ${meds.map(m => `<option value="${m.id}" ${m.id === l.medId ? 'selected' : ''}>${m.nom_commercial}</option>`).join('')}
+      </select>
+      <input type="number" class="form-control" style="width:70px" value="${l.qte}" min="1"
+        oninput="lignesPrescr[${i}].qte=parseInt(this.value)||1" placeholder="Qté">
+      <input class="form-control" style="flex:2" value="${l.posologie}"
+        oninput="lignesPrescr[${i}].posologie=this.value" placeholder="Posologie...">
+      <button onclick="lignesPrescr.splice(${i},1);renderLignesPrescr()"
+        style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px">✕</button>
+    </div>`).join('');
+}
+
+function saveOrd() {
+  const ref    = document.getElementById('oRef').value.trim();
+  const client = document.getElementById('oClient').value;
+  const medecin= document.getElementById('oMedecin').value.trim();
+  const date   = document.getElementById('oDatePrescr').value;
+  if (!ref || !client || !medecin || !date) { Toast.error('Champs obligatoires manquants'); return; }
+  if (DB.get('ordonnances').find(o => o.ref_ordonnance === ref)) { Toast.error('Référence déjà utilisée'); return; }
+
+  const renou = document.getElementById('oRenou').value === '1';
+  const ord = DB.push('ordonnances', {
+    ref_ordonnance: ref,
+    client_id: client,
+    medecin_nom: medecin,
+    medecin_specialite: document.getElementById('oSpecialite').value,
+    date_prescription: date,
+    date_delivrance: null,
+    renouvelable: renou,
+    nb_renouvellements_max: renou ? (parseInt(document.getElementById('oNbRenou').value) || 3) : 1,
+    nb_delivrances: 0,
+    notes: document.getElementById('oNotes').value,
+    statut: 'en_attente'
+  });
+  lignesPrescr.forEach(l => {
+    DB.push('lignes_ordonnance', { ordonnance_id: ord.id, medicament_id: l.medId, quantite_prescrite: l.qte, posologie: l.posologie });
+  });
+  DB.push('audit_logs', { user_id: user.id, action: 'enregistrement_ordonnance', entite: 'ordonnances', entite_id: ord.id, details: `Ordonnance ${ref} enregistrée` });
+  lignesPrescr = [];
+  Modal.close('mOrd');
+  Toast.success(`✅ Ordonnance ${ref} enregistrée !`);
+  load();
+}
+
+function marquerDelivree(id) {
+  const o = DB.find('ordonnances', id); if (!o) return;
+  if (!o.renouvelable && o.nb_delivrances >= 1) { Toast.error('Ordonnance non renouvelable déjà délivrée (RG21)'); return; }
+  if (o.renouvelable && o.nb_delivrances >= (o.nb_renouvellements_max || 1)) { Toast.error('Nombre maximum de renouvellements atteint (RG21)'); return; }
+  const nbNew = (o.nb_delivrances || 0) + 1;
+  const newStatut = !o.renouvelable || nbNew >= (o.nb_renouvellements_max || 1) ? 'delivree' : 'en_attente';
+  DB.update('ordonnances', id, { nb_delivrances: nbNew, date_delivrance: new Date().toISOString().split('T')[0], statut: newStatut });
+  DB.push('audit_logs', { user_id: user.id, action: 'delivrance_ordonnance', entite: 'ordonnances', entite_id: id, details: `Ordonnance ${o.ref_ordonnance} délivrée (${nbNew}/${o.renouvelable ? o.nb_renouvellements_max : 1})` });
+  Toast.success('✅ Ordonnance marquée délivrée');
+  load();
+}
+
+function voirDetail(id) {
+  const o = DB.find('ordonnances', id); if (!o) return;
+  const c = DB.find('clients', o.client_id);
+  const lignes = DB.get('lignes_ordonnance').filter(l => l.ordonnance_id === id);
+  document.getElementById('detailBody').innerHTML = `
+    <div style="background:var(--bg);border-radius:9px;padding:14px;margin-bottom:14px">
+      <div class="flex-between mb-2"><span class="text-sm text-muted">Référence</span><strong>${o.ref_ordonnance}</strong></div>
+      <div class="flex-between mb-2"><span class="text-sm text-muted">Patient</span><strong>${c ? c.prenom + ' ' + c.nom : '—'}</strong></div>
+      <div class="flex-between mb-2"><span class="text-sm text-muted">Médecin</span><strong>${o.medecin_nom || '—'}</strong></div>
+      <div class="flex-between mb-2"><span class="text-sm text-muted">Spécialité</span><span>${o.medecin_specialite || '—'}</span></div>
+      <div class="flex-between mb-2"><span class="text-sm text-muted">Prescription</span><span>${Fmt.date(o.date_prescription)}</span></div>
+      <div class="flex-between mb-2"><span class="text-sm text-muted">Renouvelable</span><span>${o.renouvelable ? `Oui (${o.nb_renouvellements_max}x)` : 'Non'}</span></div>
+      <div class="flex-between"><span class="text-sm text-muted">Délivrances</span><span>${o.nb_delivrances || 0}/${o.renouvelable ? o.nb_renouvellements_max : 1}</span></div>
+    </div>
+    <strong style="font-size:13px">Médicaments prescrits :</strong>
+    <div style="margin-top:10px">
+      ${lignes.map(l => {
+        const m = DB.find('medicaments', l.medicament_id);
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="font-weight:600;font-size:13px">💊 ${m ? m.nom_commercial : '—'}</div>
+          <div class="text-sm text-muted">Quantité : ${l.quantite_prescrite} · ${l.posologie || '—'}</div>
+        </div>`;
+      }).join('') || '<p class="text-muted text-sm">Aucun médicament listé</p>'}
+    </div>
+    ${o.notes ? `<div class="alert alert-info mt-3" style="margin-top:12px">📝 ${o.notes}</div>` : ''}`;
+  Modal.open('mDetail');
+}
+
+load();
+</script>
+  <script src="../../js/backup.js"></script>
+  <script src="../../js/pdf.js"></script>
+  <script src="../../js/scanner.js"></script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

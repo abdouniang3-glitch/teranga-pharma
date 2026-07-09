@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Rapports financiers</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">📊 Rapports Financiers</h1></div>
+      <div class="topbar-right">
+        <select class="form-control" id="filterPeriode" style="width:160px" onchange="load()">
+          <option value="today">Aujourd'hui</option>
+          <option value="week">Cette semaine</option>
+          <option value="month" selected>Ce mois</option>
+          <option value="all">Toute période</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="PDF.rapportFinancier(document.getElementById('filterPeriode').value)">📄 PDF</button>
+        <button class="btn btn-outline btn-sm" onclick="PDF.inventaireStock()">📦 Inventaire PDF</button>
+        <button class="btn btn-primary btn-sm" onclick="Backup.exportJSON()">💾 Backup</button>
+      </div>
+    </header>
+    <main class="page-content">
+
+      <!-- KPI principaux -->
+      <div class="stats-grid" id="kpiGrid"></div>
+
+      <!-- CA + Marges -->
+      <div class="grid-2 mb-4">
+        <div class="card">
+          <div class="card-header"><span class="card-title">💰 Chiffre d'affaires par mode paiement</span></div>
+          <div class="card-body" id="caByMode"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">📈 Top médicaments vendus</span></div>
+          <div class="card-body" id="topMeds"></div>
+        </div>
+      </div>
+
+      <!-- Pertes + Crédits -->
+      <div class="grid-2 mb-4">
+        <div class="card">
+          <div class="card-header"><span class="card-title">📉 Pertes enregistrées (RG31, RG35)</span></div>
+          <div class="card-body" style="padding:0">
+            <table><thead><tr><th>Médicament</th><th>Lot</th><th>Qté</th><th>Valeur perdue</th><th>Motif</th><th>Date</th></tr></thead>
+            <tbody id="pertesBody"></tbody></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">💳 Crédits clients en cours</span></div>
+          <div class="card-body" style="padding:0">
+            <table><thead><tr><th>Client</th><th>Plafond</th><th>Solde dû</th><th>Statut</th></tr></thead>
+            <tbody id="creditsBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bilan synthèse -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">📋 Bilan financier synthétique</span></div>
+        <div class="card-body" id="bilanBody"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('pharmacien');
+Sidebar.render('sidebar');
+
+function getVentesFiltrees() {
+  const periode = document.getElementById('filterPeriode').value;
+  const now = new Date();
+  const ventes = DB.get('ventes').filter(v => v.statut === 'completee');
+  if (periode === 'today') {
+    const today = now.toISOString().split('T')[0];
+    return ventes.filter(v => v.date_vente && v.date_vente.startsWith(today));
+  }
+  if (periode === 'week') {
+    const weekAgo = new Date(now - 7*86400000).toISOString();
+    return ventes.filter(v => v.date_vente >= weekAgo);
+  }
+  if (periode === 'month') {
+    const monthStr = now.toISOString().slice(0,7);
+    return ventes.filter(v => v.date_vente && v.date_vente.startsWith(monthStr));
+  }
+  return ventes;
+}
+
+function load() {
+  const ventes  = getVentesFiltrees();
+  const lignes  = DB.get('lignes_vente');
+  const meds    = DB.get('medicaments');
+  const clients = DB.get('clients');
+  const pertes  = DB.get('pertes');
+  const lots    = DB.get('lots');
+
+  const totalCA      = ventes.reduce((s,v) => s + v.montant_total, 0);
+  const totalRemises = ventes.reduce((s,v) => s + (v.montant_remise||0), 0);
+  const totalCredit  = clients.reduce((s,c) => s + (c.solde_credit||0), 0);
+  const totalPertes  = pertes.reduce((s,p) => s + (p.valeur_perdue||0), 0);
+  const margeEstimee = ventes.reduce((s,v) => {
+    const lv = lignes.filter(l => l.vente_id === v.id);
+    return s + lv.reduce((ss,l) => {
+      const m = meds.find(x => x.id === l.medicament_id);
+      if(!m) return ss;
+      return ss + (l.prix_unitaire - m.prix_achat) * l.quantite;
+    }, 0);
+  }, 0);
+
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon green">💰</div><div><div class="stat-label">Chiffre d'affaires</div><div class="stat-value">${Fmt.currency(totalCA)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue">📈</div><div><div class="stat-label">Marge brute estimée</div><div class="stat-value">${Fmt.currency(margeEstimee)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">🏷️</div><div><div class="stat-label">Total remises</div><div class="stat-value">${Fmt.currency(totalRemises)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">📉</div><div><div class="stat-label">Pertes (périmés/casse)</div><div class="stat-value">${Fmt.currency(totalPertes)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">💳</div><div><div class="stat-label">Crédits en cours</div><div class="stat-value">${Fmt.currency(totalCredit)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon teal">🧾</div><div><div class="stat-label">Nombre de ventes</div><div class="stat-value">${ventes.length}</div></div></div>`;
+
+  // CA par mode paiement
+  const modes = {especes:'💵 Espèces',wave:'📱 Wave',orange_money:'📱 Orange Money',credit:'💳 Crédit'};
+  const caMode = {};
+  ventes.forEach(v => { caMode[v.mode_paiement] = (caMode[v.mode_paiement]||0) + v.montant_total; });
+  const maxMode = Math.max(...Object.values(caMode), 1);
+  document.getElementById('caByMode').innerHTML = Object.entries(modes).map(([k,label]) => {
+    const val = caMode[k] || 0;
+    const pct = Math.round(val/maxMode*100);
+    return `<div class="mb-3">
+      <div class="flex-between mb-1"><span style="font-size:13px">${label}</span><strong>${Fmt.currency(val)}</strong></div>
+      <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+
+  // Top médicaments
+  const medCount = {};
+  lignes.filter(l => ventes.some(v => v.id === l.vente_id)).forEach(l => {
+    medCount[l.medicament_id] = (medCount[l.medicament_id]||0) + l.quantite;
+  });
+  const topList = Object.entries(medCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxQte = topList[0]?.[1] || 1;
+  document.getElementById('topMeds').innerHTML = topList.length
+    ? topList.map(([id, qte]) => {
+        const m = meds.find(x => x.id === id);
+        return `<div class="mb-2">
+          <div class="flex-between mb-1"><span style="font-size:12.5px">💊 ${m?m.nom_commercial:'—'}</span><strong>${qte} unités</strong></div>
+          <div class="progress-wrap"><div class="progress-fill green" style="width:${Math.round(qte/maxQte*100)}%"></div></div>
+        </div>`;
+      }).join('')
+    : '<p class="text-muted text-sm text-center">Aucune donnée</p>';
+
+  // Pertes
+  document.getElementById('pertesBody').innerHTML = pertes.length
+    ? pertes.map(p => {
+        const lot = DB.find('lots', p.lot_id);
+        const m   = DB.find('medicaments', p.medicament_id);
+        const motifs = {perime:'⏰ Périmé',casse:'💥 Cassé',vole:'🚨 Volé',rappel_sanitaire:'⛔ Rappel sanitaire'};
+        return `<tr>
+          <td style="font-size:12.5px">${m?m.nom_commercial:'—'}</td>
+          <td style="font-size:11px">${lot?lot.numero_lot:'—'}</td>
+          <td>${p.quantite}</td>
+          <td class="text-danger fw-700">${Fmt.currency(p.valeur_perdue)}</td>
+          <td><span class="badge badge-danger" style="font-size:10px">${motifs[p.motif]||p.motif}</span></td>
+          <td style="font-size:11px">${Fmt.date(p.created_at)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--success)">✅ Aucune perte enregistrée</td></tr>';
+
+  // Crédits
+  const avecCredit = clients.filter(c => (c.solde_credit||0) > 0);
+  document.getElementById('creditsBody').innerHTML = avecCredit.length
+    ? avecCredit.map(c => {
+        const retard = (c.solde_credit||0) > 0;
+        return `<tr>
+          <td><strong style="font-size:12.5px">${c.prenom} ${c.nom}</strong></td>
+          <td>${Fmt.currency(c.plafond_credit||0)}</td>
+          <td class="text-danger fw-700">${Fmt.currency(c.solde_credit||0)}</td>
+          <td>${retard?'<span class="badge badge-danger">⚠️ En cours</span>':'<span class="badge badge-success">✅ Soldé</span>'}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="4" style="text-align:center;padding:14px;color:var(--success)">✅ Aucun crédit en cours</td></tr>';
+
+  // Bilan synthèse
+  const resultatNet = totalCA + totalRemises*0 - totalPertes - totalCredit*0;
+  document.getElementById('bilanBody').innerHTML = `
+    <div class="grid-3" style="text-align:center;margin-bottom:20px">
+      <div style="padding:18px;background:var(--bg);border-radius:10px">
+        <div style="font-size:22px;font-weight:700;color:var(--success)">${Fmt.currency(totalCA)}</div>
+        <div class="text-sm text-muted">Produits (CA)</div>
+      </div>
+      <div style="padding:18px;background:var(--bg);border-radius:10px">
+        <div style="font-size:22px;font-weight:700;color:var(--danger)">-${Fmt.currency(totalPertes)}</div>
+        <div class="text-sm text-muted">Charges (pertes)</div>
+      </div>
+      <div style="padding:18px;background:var(--bg);border-radius:10px">
+        <div style="font-size:22px;font-weight:700;color:${margeEstimee>=0?'var(--primary)':'var(--danger)'}">${Fmt.currency(margeEstimee - totalPertes)}</div>
+        <div class="text-sm text-muted">Résultat net estimé</div>
+      </div>
+    </div>
+    <div class="alert alert-info">
+      ℹ️ <strong>Note :</strong> Le CA, les marges et les pertes sont calculés automatiquement conformément aux règles RG33, RG34 et RG35. 
+      Les crédits non remboursés (${Fmt.currency(totalCredit)}) ne sont pas encore déduits du résultat net.
+    </div>`;
+}
+
+load();
+</script>
+  <script src="../../js/backup.js"></script>
+  <script src="../../js/pdf.js"></script>
+  <script src="../../js/scanner.js"></script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

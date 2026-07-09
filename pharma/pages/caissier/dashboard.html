@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Caissier</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">💵 Espace Caissier</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+
+      <div class="hero-banner hero-caissier">
+        <div class="hero-left">
+          <div class="hero-tag"><span class="dot"></span> Caissier</div>
+          <div class="hero-title">Bonjour, <em id="hNom">Caissier</em></div>
+          <div class="hero-sub">Encaissement, crédits et reçus de la journée</div>
+          <div class="hero-stats">
+            <div class="hero-stat"><div class="v" id="hCA">0</div><div class="l">FCFA encaissés</div></div>
+            <div class="hero-stat"><div class="v" id="hV">0</div><div class="l">Ventes du jour</div></div>
+            <div class="hero-stat"><div class="v" id="hCr">0</div><div class="l">Crédits en cours</div></div>
+          </div>
+        </div>
+        <div class="hero-right">
+          <svg viewBox="0 0 220 180" width="220" height="180" xmlns="http://www.w3.org/2000/svg">
+            <rect x="50" y="80" width="120" height="70" rx="8" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+            <rect x="60" y="90" width="100" height="25" rx="4" fill="rgba(192,80,0,.4)"/>
+            <text x="110" y="107" text-anchor="middle" font-size="11" fill="#fff" font-weight="700" font-family="DM Sans,sans-serif">CAISSE</text>
+            <rect x="65" y="123" width="22" height="14" rx="3" fill="rgba(245,158,11,.5)"/>
+            <rect x="93" y="123" width="22" height="14" rx="3" fill="rgba(245,158,11,.45)"/>
+            <rect x="121" y="123" width="22" height="14" rx="3" fill="rgba(245,158,11,.4)"/>
+            <circle cx="185" cy="50" r="3" fill="rgba(245,158,11,.5)"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="grid-2 mb-4">
+        <div class="card"><div class="card-header"><span class="card-title">💵 CA par mode de paiement</span></div><div class="card-body" id="caMode"></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">💳 Clients avec crédit en cours</span><a href="credits.html" class="btn btn-outline btn-sm">Gérer</a></div><div class="card-body" style="padding:0"><table><thead><tr><th>Client</th><th>Solde dû</th><th>Plafond</th></tr></thead><tbody id="creditBody"></tbody></table></div></div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-title">🧾 Dernières ventes du jour</span></div><div class="card-body" style="padding:0"><table><thead><tr><th>Réf</th><th>Heure</th><th>Client</th><th>Montant</th><th>Mode</th><th>Statut</th></tr></thead><tbody id="vBody"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('caissier');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+document.getElementById('hNom').textContent=user.nom.split(' ')[0];
+function load(){
+  const today=new Date().toISOString().split('T')[0];
+  const ventes=DB.get('ventes');
+  const ventesJour=ventes.filter(v=>v.date_vente&&v.date_vente.startsWith(today)&&v.statut==='completee');
+  const clients=DB.get('clients');
+  const avecCredit=clients.filter(c=>(c.solde_credit||0)>0);
+  const caJour=ventesJour.reduce((s,v)=>s+v.montant_total,0);
+  document.getElementById('hCA').textContent=Fmt.currency(caJour);
+  document.getElementById('hV').textContent=ventesJour.length;
+  document.getElementById('hCr').textContent=avecCredit.length;
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon green">💰</div><div><div class="stat-label">CA aujourd'hui</div><div class="stat-value">${Fmt.currency(caJour)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue">🧾</div><div><div class="stat-label">Ventes du jour</div><div class="stat-value">${ventesJour.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">💳</div><div><div class="stat-label">Crédits en cours</div><div class="stat-value">${avecCredit.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">💸</div><div><div class="stat-label">Total crédits</div><div class="stat-value">${Fmt.currency(avecCredit.reduce((s,c)=>s+(c.solde_credit||0),0))}</div></div></div>`;
+  const modes={especes:'💵 Espèces',wave:'📱 Wave',orange_money:'📱 Orange Money',credit:'💳 Crédit'};
+  const caByMode={};
+  ventesJour.forEach(v=>{caByMode[v.mode_paiement]=(caByMode[v.mode_paiement]||0)+v.montant_total});
+  const maxM=Math.max(...Object.values(caByMode),1);
+  document.getElementById('caMode').innerHTML=Object.entries(modes).map(([k,l])=>{const v=caByMode[k]||0;return`<div class="mb-3"><div class="flex-between mb-1"><span style="font-size:13px">${l}</span><strong>${Fmt.currency(v)}</strong></div><div class="progress-wrap"><div class="progress-fill" style="width:${Math.round(v/maxM*100)}%"></div></div></div>`}).join('');
+  document.getElementById('creditBody').innerHTML=avecCredit.slice(0,5).map(c=>`<tr><td><strong style="font-size:13px">${c.prenom} ${c.nom}</strong></td><td class="text-danger fw-700">${Fmt.currency(c.solde_credit||0)}</td><td>${Fmt.currency(c.plafond_credit||0)}</td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:14px;color:var(--success)">✅ Aucun crédit</td></tr>';
+  const mIcon={especes:'💵',wave:'📱',orange_money:'📱',credit:'💳'};
+  document.getElementById('vBody').innerHTML=ventesJour.slice(-8).reverse().map(v=>{const c=clients.find(x=>x.id===v.client_id);const h=new Date(v.date_vente).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});return`<tr><td><code style="font-size:11px">${v.ref_vente}</code></td><td style="font-size:12px">${h}</td><td style="font-size:12px">${c?c.prenom+' '+c.nom:'Passage'}</td><td style="font-weight:700;color:var(--primary)">${Fmt.currency(v.montant_total)}</td><td style="font-size:12px">${mIcon[v.mode_paiement]||'—'}</td><td>${Fmt.statutVente(v.statut)}</td></tr>`}).join('')||'<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--text-muted)">Aucune vente ce jour</td></tr>';
+}
+load();
+
+</script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

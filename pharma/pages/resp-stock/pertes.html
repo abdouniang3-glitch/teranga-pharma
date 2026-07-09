@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Pertes & Retours</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">📉 Pertes & Retours (RG30–RG32)</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+
+      <div class="alert alert-warning">📉 <strong>RG31 :</strong> Les pertes (périmés, cassés, volés, rappels sanitaires) sont enregistrées avec motif, quantité et valeur. <strong>RG35 :</strong> Elles sont déduites du bilan financier.</div>
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card"><div class="card-header"><span class="card-title">Historique des pertes</span></div><div class="card-body" style="padding:0"><table><thead><tr><th>Médicament</th><th>Lot</th><th>Quantité</th><th>Valeur perdue</th><th>Motif</th><th>Date</th><th>Enregistré par</th></tr></thead><tbody id="b"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('resp_stock','pharmacien');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+function load(){
+  const pertes=DB.get('pertes');
+  const totalPerte=pertes.reduce((s,p)=>s+(p.valeur_perdue||0),0);
+  const motifs={perime:'⏰ Périmé',casse:'💥 Cassé',vole:'🚨 Volé',rappel_sanitaire:'⛔ Rappel sanitaire'};
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon red">📉</div><div><div class="stat-label">Total pertes enregistrées</div><div class="stat-value">${pertes.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">💸</div><div><div class="stat-label">Valeur totale perdue</div><div class="stat-value">${Fmt.currency(totalPerte)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">💀</div><div><div class="stat-label">Périmés</div><div class="stat-value">${pertes.filter(p=>p.motif==='perime').length}</div></div></div>`;
+  const accs=AccountManager.getAll();
+  document.getElementById('b').innerHTML=pertes.slice().reverse().map(p=>{const lot=DB.find('lots',p.lot_id);const m=DB.find('medicaments',p.medicament_id);const enr=accs.find(a=>a.id===p.enregistre_par);return`<tr><td><strong>${m?m.nom_commercial:'—'}</strong></td><td style="font-size:11px">${lot?lot.numero_lot:'—'}</td><td>${p.quantite}</td><td class="text-danger fw-700">${Fmt.currency(p.valeur_perdue)}</td><td><span class="badge badge-danger" style="font-size:10px">${motifs[p.motif]||p.motif}</span></td><td style="font-size:12px">${Fmt.date(p.created_at)}</td><td style="font-size:12px">${enr?enr.nom:'—'}</td></tr>`}).join('')||'<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--success)">✅ Aucune perte enregistrée</td></tr>';
+}
+load();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Mon compte</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">👤 Mon Compte Client</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+
+      <div class="hero-banner hero-client">
+        <div class="hero-left">
+          <div class="hero-tag"><span class="dot"></span> Espace Client</div>
+          <div class="hero-title">Bonjour, <em id="hNom">Client</em> 👋</div>
+          <div class="hero-sub">Votre historique d'achats et vos ordonnances</div>
+          <div class="hero-stats">
+            <div class="hero-stat"><div class="v" id="hA">0</div><div class="l">Total achats</div></div>
+            <div class="hero-stat"><div class="v" id="hCr">0</div><div class="l">Crédit utilisé</div></div>
+          </div>
+        </div>
+        <div class="hero-right">
+          <svg viewBox="0 0 220 180" width="220" height="180" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="110" cy="75" r="45" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.2)" stroke-width="2"/>
+            <circle cx="110" cy="65" r="28" fill="rgba(255,255,255,.15)"/>
+            <ellipse cx="110" cy="130" rx="38" ry="22" fill="rgba(255,255,255,.12)"/>
+            <text x="110" y="170" text-anchor="middle" font-size="14" fill="rgba(255,255,255,.6)" font-family="DM Sans,sans-serif">TERANGA PHARMA</text>
+          </svg>
+        </div>
+      </div>
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="grid-2">
+        <div class="card"><div class="card-header"><span class="card-title">📜 Mes derniers achats</span><a href="historique.html" class="btn btn-outline btn-sm">Tout voir</a></div><div class="card-body" style="padding:0"><table><thead><tr><th>Réf</th><th>Date</th><th>Montant</th><th>Mode</th></tr></thead><tbody id="vBody"></tbody></table></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">📋 Mes ordonnances</span></div><div class="card-body" id="ordBody"></div></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('client');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+document.getElementById('hNom').textContent=user.nom.split(' ')[0];
+function load(){
+  const clientId=user.client_id;
+  const client=clientId?DB.find('clients',clientId):null;
+  const ventes=DB.get('ventes').filter(v=>v.client_id===clientId);
+  const ords=DB.get('ordonnances').filter(o=>o.client_id===clientId);
+  const totalAchats=ventes.reduce((s,v)=>s+v.montant_total,0);
+  document.getElementById('hA').textContent=Fmt.currency(totalAchats);
+  document.getElementById('hCr').textContent=Fmt.currency(client?client.solde_credit||0:0);
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon green">💰</div><div><div class="stat-label">Total achats</div><div class="stat-value">${Fmt.currency(totalAchats)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">💳</div><div><div class="stat-label">Crédit utilisé</div><div class="stat-value">${Fmt.currency(client?client.solde_credit||0:0)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue">📋</div><div><div class="stat-label">Mes ordonnances</div><div class="stat-value">${ords.length}</div></div></div>`;
+  const mIcon={especes:'💵',wave:'📱',orange_money:'📱',credit:'💳'};
+  document.getElementById('vBody').innerHTML=ventes.slice(-5).reverse().map(v=>`<tr><td><code style="font-size:11px">${v.ref_vente}</code></td><td style="font-size:12px">${Fmt.date(v.date_vente)}</td><td style="font-weight:700;color:var(--primary)">${Fmt.currency(v.montant_total)}</td><td style="font-size:12px">${mIcon[v.mode_paiement]||'—'}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;padding:14px;color:var(--text-muted)">Aucun achat</td></tr>';
+  document.getElementById('ordBody').innerHTML=ords.length?ords.map(o=>`<div style="border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:8px;padding:10px;margin-bottom:8px"><div style="font-weight:600;font-size:13px">${o.ref_ordonnance}</div><div class="text-sm text-muted">Dr ${o.medecin_nom||'?'} · ${Fmt.date(o.date_prescription)}</div>${Fmt.statutOrd(o.statut)}</div>`).join(''):'<p class="text-muted text-sm text-center" style="padding:16px">Aucune ordonnance</p>';
+}
+load();
+
+</script>
+</body>
+</html>

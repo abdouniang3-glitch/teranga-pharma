@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Espace Fournisseur</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">🏭 Espace Fournisseur</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+
+      <div class="alert alert-info">🏭 Bienvenue sur l'espace fournisseur de TERANGA PHARMA. Consultez les commandes passées et signalez vos livraisons.</div>
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card"><div class="card-header"><span class="card-title">📦 Commandes reçues</span></div><div class="card-body" style="padding:0"><table><thead><tr><th>Réf</th><th>Date</th><th>Livraison prévue</th><th>Statut</th><th></th></tr></thead><tbody id="b"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('fournisseur');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+function load(){
+  const cmds=DB.get('commandes_fournisseurs');const fId=user.fourn_id;const myCmd=fId?cmds.filter(c=>c.fournisseur_id===fId):cmds;
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon blue">📋</div><div><div class="stat-label">Total commandes</div><div class="stat-value">${myCmd.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">📤</div><div><div class="stat-label">À livrer</div><div class="stat-value">${myCmd.filter(c=>c.statut==='envoyee').length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-label">Livrées</div><div class="stat-value">${myCmd.filter(c=>c.statut==='livree').length}</div></div></div>`;
+  document.getElementById('b').innerHTML=myCmd.slice().reverse().map(c=>`<tr><td><code style="font-size:11px">${c.ref_commande}</code></td><td style="font-size:12px">${Fmt.date(c.date_commande)}</td><td style="font-size:12px">${Fmt.date(c.date_livraison_prevue)}</td><td>${Fmt.statutCommande(c.statut)}</td><td>${c.statut==='envoyee'?`<button class="btn btn-success btn-xs" onclick="confirmerLivraison('${c.id}')">📦 Confirmer livraison</button>`:''}</td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:14px;color:var(--text-muted)">Aucune commande</td></tr>';
+}
+function confirmerLivraison(id){DB.update('commandes_fournisseurs',id,{statut:'livree'});Toast.success('✅ Livraison confirmée');load();}
+load();
+
+</script>
+</body>
+</html>

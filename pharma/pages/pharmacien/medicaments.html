@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Catalogue médicaments</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">💊 Catalogue Médicaments</h1></div>
+      <div class="topbar-right"><button class="btn btn-primary btn-sm" onclick="Modal.open('mMed')">➕ Ajouter médicament</button></div>
+    </header>
+    <main class="page-content">
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(4,1fr)"></div>
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">Liste du catalogue</span>
+          <div style="display:flex;gap:8px">
+            <input class="form-control" id="search" placeholder="🔍 Rechercher..." style="width:200px" oninput="load()">
+            <select class="form-control" id="filterClass" style="width:180px" onchange="load()">
+              <option value="">Toutes les classes</option>
+            </select>
+            <select class="form-control" id="filterOrd" style="width:170px" onchange="load()">
+              <option value="">Tous types</option>
+              <option value="1">Sur ordonnance</option>
+              <option value="0">Vente libre</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table><thead><tr><th>DCI</th><th>Nom commercial</th><th>Forme</th><th>Dosage</th><th>Classe</th><th>Prix achat</th><th>Prix vente</th><th>Marge</th><th>Stock</th><th>Type</th><th></th></tr></thead>
+          <tbody id="b"></tbody></table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="mMed">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff"><span class="modal-title" style="color:#fff">➕ Nouveau médicament</span><button class="modal-close" style="color:#fff">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">DCI *</label><input class="form-control" id="mDCI" placeholder="Ex: Paracétamol"></div>
+        <div class="form-group"><label class="form-label">Nom commercial *</label><input class="form-control" id="mNom" placeholder="Ex: Doliprane 500mg"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Forme galénique *</label>
+          <select class="form-control" id="mForme"><option>Comprimé</option><option>Gélule</option><option>Sirop</option><option>Injectable</option><option>Pommade</option><option>Effervescent</option><option>Sachet</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Dosage</label><input class="form-control" id="mDosage" placeholder="Ex: 500mg"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Classe thérapeutique</label><select class="form-control" id="mClasse"></select></div>
+        <div class="form-group"><label class="form-label">Type</label>
+          <select class="form-control" id="mOrd"><option value="0">Vente libre</option><option value="1">Sur ordonnance</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Prix d'achat (FCFA) *</label><input type="number" class="form-control" id="mPA" oninput="calcPV()"></div>
+        <div class="form-group"><label class="form-label">Marge (%)</label><input type="number" class="form-control" id="mMarge" value="30" oninput="calcPV()"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Prix de vente (FCFA)</label><input type="number" class="form-control" id="mPV" style="font-weight:700;color:var(--primary)"></div>
+        <div class="form-group"><label class="form-label">Seuil stock min.</label><input type="number" class="form-control" id="mSeuil" value="10"></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline modal-close">Annuler</button><button class="btn btn-primary" onclick="addMed()">✅ Ajouter</button></div>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('pharmacien','assistant','preparateur');
+Sidebar.render('sidebar');
+
+function load(){
+  const meds = DB.get('medicaments');
+  const classes = DB.get('classes');
+  const search = document.getElementById('search').value.toLowerCase();
+  const filterClass = document.getElementById('filterClass').value;
+  const filterOrd = document.getElementById('filterOrd').value;
+  let filtered = meds;
+  if(search) filtered=filtered.filter(m=>m.nom_commercial.toLowerCase().includes(search)||m.dci.toLowerCase().includes(search));
+  if(filterClass) filtered=filtered.filter(m=>m.classe_id===filterClass);
+  if(filterOrd!=='') filtered=filtered.filter(m=>String(m.sur_ordonnance?1:0)===filterOrd);
+  const ordCount = meds.filter(m=>m.sur_ordonnance).length;
+  const freeCount = meds.filter(m=>!m.sur_ordonnance).length;
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon green">💊</div><div><div class="stat-label">Total médicaments</div><div class="stat-value">${meds.length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue">📋</div><div><div class="stat-label">Sur ordonnance</div><div class="stat-value">${ordCount}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">🆓</div><div><div class="stat-label">Vente libre</div><div class="stat-value">${freeCount}</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">🗂️</div><div><div class="stat-label">Classes thérapeutiques</div><div class="stat-value">${classes.length}</div></div></div>`;
+  document.getElementById('filterClass').innerHTML='<option value="">Toutes classes</option>'+classes.map(c=>`<option value="${c.id}">${c.nom}</option>`).join('');
+  document.getElementById('mClasse').innerHTML=classes.map(c=>`<option value="${c.id}">${c.nom}</option>`).join('');
+  document.getElementById('b').innerHTML=filtered.map(m=>{
+    const stock=getStockTotal(m.id);
+    const cls=DB.find('classes',m.classe_id);
+    const marge=Math.round(((m.prix_vente-m.prix_achat)/m.prix_achat)*100);
+    return `<tr>
+      <td><strong>${m.dci}</strong></td>
+      <td>${m.nom_commercial}</td>
+      <td>${m.forme||'—'}</td>
+      <td>${m.dosage||'—'}</td>
+      <td><span class="badge badge-neutral" style="font-size:10px">${cls?cls.nom:'—'}</span></td>
+      <td>${Fmt.currency(m.prix_achat)}</td>
+      <td style="font-weight:700;color:var(--primary)">${Fmt.currency(m.prix_vente)}</td>
+      <td><span class="badge badge-success" style="font-size:10px">+${marge}%</span></td>
+      <td><span class="${stock<=m.seuil_min?'text-danger fw-700':'text-success fw-700'}">${stock}</span></td>
+      <td>${m.sur_ordonnance?'<span class="badge badge-warning">📋 Ord.</span>':'<span class="badge badge-success">🆓 Libre</span>'}</td>
+      <td><button class="btn btn-outline btn-xs" onclick="editPrix('${m.id}')">✏️</button></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text-muted)">Aucun médicament trouvé</td></tr>';
+}
+
+function calcPV(){
+  const pa=parseInt(document.getElementById('mPA').value)||0;
+  const m=parseInt(document.getElementById('mMarge').value)||30;
+  document.getElementById('mPV').value=calcPrixVente(pa,m);
+}
+
+function addMed(){
+  const dci=document.getElementById('mDCI').value.trim();
+  const nom=document.getElementById('mNom').value.trim();
+  const pa=parseInt(document.getElementById('mPA').value)||0;
+  if(!dci||!nom||!pa){Toast.error('DCI, nom et prix d\'achat obligatoires');return}
+  const marge=parseInt(document.getElementById('mMarge').value)||30;
+  DB.push('medicaments',{
+    dci, nom_commercial:nom,
+    forme:document.getElementById('mForme').value,
+    dosage:document.getElementById('mDosage').value,
+    classe_id:document.getElementById('mClasse').value,
+    sur_ordonnance:document.getElementById('mOrd').value==='1',
+    prix_achat:pa, prix_vente:parseInt(document.getElementById('mPV').value)||calcPrixVente(pa,marge),
+    marge_pct:marge, seuil_min:parseInt(document.getElementById('mSeuil').value)||10
+  });
+  Modal.close('mMed');
+  Toast.success('✅ Médicament ajouté !'); load();
+}
+
+function editPrix(id){
+  const m=DB.find('medicaments',id);if(!m)return;
+  const nv=prompt(`Nouveau prix de vente pour ${m.nom_commercial} (actuel: ${Fmt.currency(m.prix_vente)}) :`,m.prix_vente);
+  if(!nv||isNaN(nv))return;
+  DB.update('medicaments',id,{prix_vente:parseInt(nv)});
+  Toast.success('Prix mis à jour'); load();
+}
+load();
+</script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

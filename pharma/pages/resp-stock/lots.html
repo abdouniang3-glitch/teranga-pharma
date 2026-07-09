@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Lots & Péremptions</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">🗂️ Lots & Péremptions</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+
+      <div class="alert alert-info">📦 <strong>Méthode FEFO</strong> — Lots avec la date de péremption la plus proche vendus en priorité (RG7). Alerte automatique si péremption &lt; 3 mois (RG8).</div>
+      <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card"><div class="card-header"><span class="card-title">Détail de tous les lots</span><select class="form-control" id="fs" style="width:180px" onchange="load()"><option value="">Tous</option><option value="actif">Actifs</option><option value="alerte_peremption">Alerte péremption</option><option value="perime">Périmés</option></select></div><div class="card-body" style="padding:0"><table><thead><tr><th>N° Lot</th><th>Médicament</th><th>Fabrication</th><th>Péremption</th><th>J restants</th><th>Dispo</th><th>Statut</th><th></th></tr></thead><tbody id="b"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('resp_stock');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+function load(){
+  let lots=DB.get('lots');const fs=document.getElementById('fs').value;if(fs) lots=lots.filter(l=>l.statut===fs);
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-label">Lots actifs</div><div class="stat-value">${DB.get('lots').filter(l=>l.statut==='actif').length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">⚠️</div><div><div class="stat-label">Alerte péremption</div><div class="stat-value">${DB.get('lots').filter(l=>l.statut==='alerte_peremption').length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">💀</div><div><div class="stat-label">Périmés</div><div class="stat-value">${DB.get('lots').filter(l=>l.statut==='perime').length}</div></div></div>`;
+  document.getElementById('b').innerHTML=lots.map(l=>{const m=DB.find('medicaments',l.medicament_id);const j=Fmt.joursPeremption(l.date_peremption);return`<tr><td><code style="font-size:11px">${l.numero_lot}</code></td><td>${m?m.nom_commercial:'—'}</td><td style="font-size:12px">${Fmt.date(l.date_fabrication)}</td><td style="font-size:12px">${Fmt.date(l.date_peremption)}</td><td><span class="${j<=0?'text-danger fw-700':j<=90?'text-warning fw-700':''}">${j<=0?'PÉRIMÉ':j+'j'}</span></td><td><strong>${l.quantite_disponible}</strong></td><td>${Fmt.statutLot(l.statut)}</td><td>${l.statut!=='perime'?`<button class="btn btn-danger btn-xs" onclick="retirerLot('${l.id}')">🗑️</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--text-muted)">Aucun lot</td></tr>';
+}
+function retirerLot(id){
+  const l=DB.find('lots',id);if(!l)return;
+  const m=DB.find('medicaments',l.medicament_id);
+  if(!confirm(`Retirer le lot ${l.numero_lot} (${l.quantite_disponible} unités) ?`))return;
+  const valeur=l.quantite_disponible*(l.prix_achat||0);
+  DB.push('pertes',{lot_id:id,medicament_id:l.medicament_id,quantite:l.quantite_disponible,valeur_perdue:valeur,motif:'perime',enregistre_par:user.id});
+  DB.update('lots',id,{statut:'perime',quantite_disponible:0});
+  Toast.warning(`Lot ${l.numero_lot} retiré. Perte: ${Fmt.currency(valeur)}`); load();
+}
+load();
+
+</script>
+</body>
+</html>

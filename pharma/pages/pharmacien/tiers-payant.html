@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Tiers Payant</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <style>
+    .tp-card { background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px;transition:all .2s; }
+    .tp-card:hover { box-shadow:var(--shadow-md);border-color:var(--primary); }
+    .tp-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:700; }
+    .tp-badge.ipres   { background:#e3edf9;color:#1565c0; }
+    .tp-badge.css     { background:#e6f4ed;color:#065f46; }
+    .tp-badge.mutuelle{ background:#fef3c7;color:#92400e; }
+    .tp-badge.assurance{background:#ede8f8;color:#5b21b6; }
+    .tp-badge.etat    { background:#fde8e8;color:#991b1b; }
+    .coverage-bar { height:10px;background:var(--bg-alt);border-radius:5px;overflow:hidden;margin-top:6px; }
+    .coverage-fill{ height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:5px;transition:width .6s; }
+    .facture-row td { font-size:12.5px; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">🏥 Tiers Payant — IPRES / CSS / Mutuelles</h1></div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="Modal.open('mDossier')">➕ Nouveau dossier</button>
+        <button class="btn btn-outline btn-sm" onclick="PDF.rapportTP()">📄 Rapport TP</button>
+      </div>
+    </header>
+    <main class="page-content">
+
+      <div class="alert alert-info mb-4">
+        🏥 Le <strong>tiers payant</strong> permet à un client assuré (IPRES, CSS, mutuelle, assurance) de ne payer que sa quote-part. L'organisme est facturé directement pour le reste. Ce module gère les dossiers, le calcul automatique des parts et le suivi des remboursements.
+      </div>
+
+      <!-- KPIs -->
+      <div class="stats-grid" id="kpiGrid" style="grid-template-columns:repeat(5,1fr)"></div>
+
+      <!-- Organismes -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">🏦 Organismes conventionnés</span>
+          <button class="btn btn-outline btn-sm" onclick="Modal.open('mOrganisme')">⚙️ Gérer</button>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px" id="organismeGrid"></div>
+        </div>
+      </div>
+
+      <!-- Dossiers clients -->
+      <div class="grid-2 mb-4">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📁 Dossiers actifs</span>
+            <input class="form-control" id="searchDossier" placeholder="🔍 Client..." style="width:160px" oninput="load()">
+          </div>
+          <div class="card-body" style="padding:0">
+            <table>
+              <thead><tr><th>Client</th><th>Organisme</th><th>N° Adhérent</th><th>Expiration</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="dossierBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">💰 Consommation mensuelle</span></div>
+          <div class="card-body" id="consoBody"></div>
+        </div>
+      </div>
+
+      <!-- Factures TP -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🧾 Factures tiers payant</span>
+          <div style="display:flex;gap:8px">
+            <select class="form-control" id="filterStatutTP" style="width:160px" onchange="load()">
+              <option value="">Tous statuts</option>
+              <option value="soumise">Soumises</option>
+              <option value="acceptee">Acceptées</option>
+              <option value="payee">Payées</option>
+              <option value="rejete">Rejetées</option>
+            </select>
+            <select class="form-control" id="filterOrgTP" style="width:160px" onchange="load()">
+              <option value="">Tous organismes</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table>
+            <thead><tr><th>Réf</th><th>Date</th><th>Client</th><th>Organisme</th><th>Montant total</th><th>Part TP</th><th>Part patient</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="factureBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal nouveau dossier TP -->
+<div class="modal-overlay" id="mDossier">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff">
+      <span class="modal-title" style="color:#fff">📁 Créer un dossier tiers payant</span>
+      <button class="modal-close" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Client *</label><select class="form-control" id="dClient"></select></div>
+        <div class="form-group"><label class="form-label">Organisme *</label><select class="form-control" id="dOrg" onchange="updateCoverage()"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">N° Adhérent / Police *</label><input class="form-control" id="dNum" placeholder="Ex: IPRES-2024-00123"></div>
+        <div class="form-group"><label class="form-label">Date d'expiration *</label><input type="date" class="form-control" id="dExp"></div>
+      </div>
+      <div id="coveragePreview" class="alert alert-info" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close">Annuler</button>
+      <button class="btn btn-primary" onclick="creerDossier()">✅ Créer le dossier</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal simulateur TP -->
+<div class="modal-overlay" id="mSimul">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><span class="modal-title">🧮 Simulateur tiers payant</span><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Montant total (FCFA)</label><input type="number" class="form-control" id="sMount" placeholder="Ex: 15000" oninput="simuler()"></div>
+        <div class="form-group"><label class="form-label">Organisme</label><select class="form-control" id="sOrg" onchange="simuler()"></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Client</label><select class="form-control" id="sClient" onchange="simuler()"><option value="">Sélectionner...</option></select></div>
+      <div id="simulResult" style="margin-top:14px"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline modal-close">Fermer</button></div>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script src="../../js/tiers-payant.js"></script>
+<script src="../../js/pdf.js"></script>
+<script>
+Auth.requireRole('pharmacien','caissier','assistant');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+TiersPayant.init();
+
+function load() {
+  const organismes = TiersPayant.getOrganismes();
+  const dossiers   = DB.get('dossiers_tp');
+  const factures   = DB.get('factures_tp');
+  const clients    = DB.get('clients');
+  const search     = document.getElementById('searchDossier').value.toLowerCase();
+  const filtStatut = document.getElementById('filterStatutTP').value;
+  const filtOrg    = document.getElementById('filterOrgTP').value;
+
+  // KPIs
+  const stats = TiersPayant.getStats();
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon blue">📁</div><div><div class="stat-label">Dossiers actifs</div><div class="stat-value">${dossiers.filter(d=>d.actif).length}</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">🧾</div><div><div class="stat-label">Factures TP</div><div class="stat-value">${stats.nbFactures}</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">⏳</div><div><div class="stat-label">En attente rembt.</div><div class="stat-value">${Fmt.currency(stats.enAttente)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">💰</div><div><div class="stat-label">Total TP payé</div><div class="stat-value">${Fmt.currency(stats.paye)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon teal">🏦</div><div><div class="stat-label">Organismes</div><div class="stat-value">${organismes.length}</div></div></div>`;
+
+  // Organismes grid
+  const typeColors = {retraite:'ipres',securite:'css',mutuelle:'mutuelle',assurance:'assurance',etat:'etat',autre:'mutuelle'};
+  document.getElementById('organismeGrid').innerHTML = organismes.map(o => {
+    const nbDossiers = dossiers.filter(d=>d.organisme_id===o.id&&d.actif).length;
+    const totalMois  = factures.filter(f=>f.organisme_id===o.id).reduce((s,f)=>s+(f.part_tp||0),0);
+    return `<div class="tp-card">
+      <div class="flex-between mb-2">
+        <span class="tp-badge ${typeColors[o.type]||'mutuelle'}">${o.code}</span>
+        <span class="text-xs text-muted">${o.taux_prise_en_charge}% PEC</span>
+      </div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:3px">${o.nom}</div>
+      <div class="text-xs text-muted mb-2">Plafond : ${Fmt.currency(o.plafond_mensuel)}/mois</div>
+      <div style="font-size:11px;color:var(--primary)">👥 ${nbDossiers} dossiers · ${Fmt.currency(totalMois)} facturé</div>
+      <div class="coverage-bar mt-2"><div class="coverage-fill" style="width:${o.taux_prise_en_charge}%"></div></div>
+    </div>`;
+  }).join('');
+
+  // Dossiers
+  let dossFilt = dossiers.filter(d=>d.actif);
+  if (search) dossFilt = dossFilt.filter(d=>{const c=clients.find(x=>x.id===d.client_id);return c&&(c.nom+' '+c.prenom).toLowerCase().includes(search);});
+  document.getElementById('dossierBody').innerHTML = dossFilt.map(d => {
+    const c = clients.find(x=>x.id===d.client_id);
+    const o = organismes.find(x=>x.id===d.organisme_id);
+    const exp = new Date(d.date_expiration);
+    const isExp = exp < new Date();
+    return `<tr>
+      <td><strong style="font-size:13px">${c?c.prenom+' '+c.nom:'—'}</strong></td>
+      <td><span class="tp-badge ${typeColors[o?.type]||'mutuelle'}">${o?o.code:'—'}</span></td>
+      <td><code style="font-size:11px">${d.numero_adherent||'—'}</code></td>
+      <td style="color:${isExp?'var(--danger)':'inherit'};font-size:12px">${Fmt.date(d.date_expiration)}</td>
+      <td>${isExp?'<span class="badge badge-danger">⏰ Expiré</span>':'<span class="badge badge-success">✅ Valide</span>'}</td>
+      <td><button class="btn btn-outline btn-xs" onclick="Modal.open('mSimul')">🧮</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--text-muted)">Aucun dossier actif</td></tr>';
+
+  // Consommation mensuelle
+  const now = new Date();
+  const mois = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('consoBody').innerHTML = `
+    <div class="text-sm text-muted mb-2">Mois en cours : <strong>${now.toLocaleString('fr-FR',{month:'long',year:'numeric'})}</strong></div>
+    ${organismes.map(o=>{
+      const conso = factures.filter(f=>f.organisme_id===o.id&&f.date&&f.date.startsWith(mois)&&f.statut!=='rejete').reduce((s,f)=>s+(f.part_tp||0),0);
+      const pct = Math.round(conso/o.plafond_mensuel*100);
+      return `<div class="mb-3">
+        <div class="flex-between mb-1"><span style="font-size:12.5px;font-weight:600">${o.code}</span><span style="font-size:12px">${Fmt.currency(conso)} / ${Fmt.currency(o.plafond_mensuel)}</span></div>
+        <div class="coverage-bar"><div class="coverage-fill ${pct>=90?'red':pct>=70?'orange':''}" style="width:${Math.min(pct,100)}%"></div></div>
+      </div>`;
+    }).join('')}`;
+
+  // Factures
+  let factFilt = factures.slice().reverse();
+  if (filtStatut) factFilt = factFilt.filter(f=>f.statut===filtStatut);
+  if (filtOrg)    factFilt = factFilt.filter(f=>f.organisme_id===filtOrg);
+
+  const statutBadge = {soumise:'<span class="badge badge-warning">⏳ Soumise</span>',acceptee:'<span class="badge badge-info">✅ Acceptée</span>',payee:'<span class="badge badge-success">💰 Payée</span>',rejete:'<span class="badge badge-danger">❌ Rejetée</span>'};
+  document.getElementById('factureBody').innerHTML = factFilt.map(f=>{
+    const c=clients.find(x=>x.id===f.client_id);
+    const o=organismes.find(x=>x.id===f.organisme_id);
+    return `<tr class="facture-row">
+      <td><code style="font-size:11px">${f.ref_facture}</code></td>
+      <td>${Fmt.date(f.date)}</td>
+      <td>${c?c.prenom+' '+c.nom:'Passage'}</td>
+      <td><span class="tp-badge ${typeColors[o?.type]||'mutuelle'}">${o?o.code:'—'}</span></td>
+      <td style="font-weight:700">${Fmt.currency(f.montant_total)}</td>
+      <td style="color:var(--primary);font-weight:700">${Fmt.currency(f.part_tp)}</td>
+      <td>${Fmt.currency(f.part_patient)}</td>
+      <td>${statutBadge[f.statut]||f.statut}</td>
+      <td>
+        ${f.statut==='soumise'?`<button class="btn btn-success btn-xs" onclick="changerStatutTP('${f.id}','acceptee')">✅</button>`:''}
+        ${f.statut==='acceptee'?`<button class="btn btn-primary btn-xs" onclick="changerStatutTP('${f.id}','payee')">💰</button>`:''}
+        ${f.statut==='soumise'?`<button class="btn btn-danger btn-xs" onclick="changerStatutTP('${f.id}','rejete')">❌</button>`:''}
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:16px;color:var(--text-muted)">Aucune facture</td></tr>';
+
+  // Populate selects
+  document.getElementById('dOrg').innerHTML  = organismes.map(o=>`<option value="${o.id}">${o.nom}</option>`).join('');
+  document.getElementById('dClient').innerHTML= clients.map(c=>`<option value="${c.id}">${c.prenom} ${c.nom}</option>`).join('');
+  document.getElementById('sOrg').innerHTML  = organismes.map(o=>`<option value="${o.id}">${o.nom} (${o.taux_prise_en_charge}%)</option>`).join('');
+  document.getElementById('sClient').innerHTML='<option value="">Sélectionner...</option>'+clients.map(c=>`<option value="${c.id}">${c.prenom} ${c.nom}</option>`).join('');
+  document.getElementById('filterOrgTP').innerHTML='<option value="">Tous organismes</option>'+organismes.map(o=>`<option value="${o.id}">${o.nom}</option>`).join('');
+}
+
+function updateCoverage() {
+  const orgId = document.getElementById('dOrg').value;
+  const o = TiersPayant.getOrganisme(orgId);
+  if (!o) return;
+  document.getElementById('coveragePreview').style.display='flex';
+  document.getElementById('coveragePreview').innerHTML = `🏥 <strong>${o.nom}</strong> — Prise en charge : <strong>${o.taux_prise_en_charge}%</strong> — Plafond mensuel : <strong>${Fmt.currency(o.plafond_mensuel)}</strong>`;
+}
+
+function creerDossier() {
+  const clientId = document.getElementById('dClient').value;
+  const orgId    = document.getElementById('dOrg').value;
+  const num      = document.getElementById('dNum').value.trim();
+  const exp      = document.getElementById('dExp').value;
+  if (!clientId||!orgId||!num||!exp) { Toast.error('Remplissez tous les champs'); return; }
+  const result = TiersPayant.creerDossier(clientId, orgId, num, exp);
+  if (result) { Modal.close('mDossier'); Toast.success('✅ Dossier tiers payant créé !'); load(); }
+}
+
+function simuler() {
+  const montant  = parseFloat(document.getElementById('sMount').value)||0;
+  const orgId    = document.getElementById('sOrg').value;
+  const clientId = document.getElementById('sClient').value;
+  if (!montant||!orgId) { document.getElementById('simulResult').innerHTML=''; return; }
+  const r = TiersPayant.calculer(montant, orgId, clientId||null);
+  document.getElementById('simulResult').innerHTML = `
+    <div style="background:var(--bg);border-radius:10px;padding:16px">
+      <div class="flex-between mb-2"><span class="text-sm">Montant total :</span><strong>${Fmt.currency(r.montant_total)}</strong></div>
+      <div class="flex-between mb-2"><span class="text-sm">Prise en charge (${r.taux}%) :</span><strong style="color:var(--primary)">${Fmt.currency(r.part_tp)}</strong></div>
+      <div class="flex-between mb-2" style="border-top:1px solid var(--border);padding-top:8px"><span class="text-sm fw-700">💊 Part patient :</span><strong style="font-size:18px;color:var(--success)">${Fmt.currency(r.part_patient)}</strong></div>
+      ${r.depassement?`<div class="alert alert-warning" style="font-size:12px;margin-top:8px">⚠️ Plafond mensuel atteint — dépassement de ${Fmt.currency(r.montant_total-r.montant_couvert)}</div>`:''}
+    </div>`;
+}
+
+function changerStatutTP(id, statut) {
+  DB.update('factures_tp', id, { statut });
+  const labels = {acceptee:'Acceptée',payee:'Payée',rejete:'Rejetée'};
+  Toast.success(`Facture ${labels[statut]||statut}`);
+  load();
+}
+
+load();
+</script>
+  <script src="../../js/sms.js"></script>
+</body>
+</html>

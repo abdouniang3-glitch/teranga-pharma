@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERANGA PHARMA — Stocks</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left"><h1 class="topbar-title">📦 Stocks disponibles</h1></div>
+      <div class="topbar-right"></div>
+    </header>
+    <main class="page-content">
+<div class="card"><div class="card-header"><span class="card-title">Stock par médicament</span><input class="form-control" id="s" placeholder="🔍 Rechercher..." style="width:180px" oninput="load()"></div><div class="card-body" style="padding:0"><table><thead><tr><th>Médicament</th><th>DCI</th><th>Stock total</th><th>Lot FEFO</th><th>Péremption FEFO</th><th>Seuil</th><th>Statut</th></tr></thead><tbody id="b"></tbody></table></div></div>
+    </main>
+  </div>
+</div>
+
+<script src="../../js/app.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/wolof.js"></script>
+  <script src="../../js/api.js"></script>
+<script>
+Auth.requireRole('preparateur');
+const user = Auth.getUser();
+Sidebar.render('sidebar');
+
+function load(){
+  const s=document.getElementById('s').value.toLowerCase();
+  let meds=DB.get('medicaments');
+  if(s) meds=meds.filter(m=>m.nom_commercial.toLowerCase().includes(s));
+  document.getElementById('b').innerHTML=meds.map(m=>{const stock=getStockTotal(m.id);const fefo=getLotFEFO(m.id);return`<tr><td><strong>${m.nom_commercial}</strong></td><td class="text-muted text-sm">${m.dci}</td><td><span class="${stock<=m.seuil_min?'text-danger fw-700':'text-success fw-700'}">${stock}</span></td><td style="font-size:11px">${fefo?fefo.numero_lot:'—'}</td><td style="font-size:11px">${fefo?`<span class="${Fmt.joursPeremption(fefo.date_peremption)<=90?'text-danger':''}">${Fmt.date(fefo.date_peremption)}</span>`:'—'}</td><td>${m.seuil_min}</td><td>${stock<=0?'<span class="badge badge-danger">🔴 Rupture</span>':stock<=m.seuil_min?'<span class="badge badge-warning">⚠️ Critique</span>':'<span class="badge badge-success">✅ OK</span>'}</td></tr>`}).join('');
+}
+load();
+
+</script>
+</body>
+</html>
