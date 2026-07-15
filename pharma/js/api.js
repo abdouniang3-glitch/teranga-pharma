@@ -5,7 +5,7 @@
 // ============================================================
 
 const API = {
-  BASE_URL:    localStorage.getItem('pharma_api_url') || 'http://localhost:3001/api/v1',
+  BASE_URL:    localStorage.getItem('pharma_api_url') || 'https://teranga-pharma-production.up.railway.app/api/v1',
   accessToken: null,
   refreshToken: null,
 
