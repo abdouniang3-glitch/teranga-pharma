@@ -287,10 +287,20 @@ function resetTimer(){clearInterval(timer);clearInterval(pInt);pVal=0;document.g
 resetTimer();
 function switchTab(t,btn){document.querySelectorAll('.login-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.getElementById('tabNormal').style.display=t==='normal'?'block':'none';document.getElementById('tabDemo').style.display=t==='demo'?'block':'none'}
 function togglePass(){const i=document.getElementById('passInput');i.type=i.type==='password'?'text':'password'}
-function doLogin(){
+async function doLogin(){
   const login=document.getElementById('loginInput').value.trim(),pass=document.getElementById('passInput').value;
   if(!login||!pass){showErr('Remplissez les deux champs.');return}
   setLoading(true);
+  try {
+    const user = await API.login(login, pass);
+    setLoading(false);
+    Auth.setUser({id:user.sub,nom:user.nom,role:user.role,login:user.login,pharmacie_id:user.pharmacie_id});
+    const route=ROUTES[user.role];
+    if(route)window.location.href=route; else showErr('Rôle non configuré');
+    return;
+  } catch(cloudErr) {
+    console.warn('[LOGIN] Cloud indisponible, fallback local:', cloudErr.message);
+  }
   setTimeout(()=>{
     const acc=AccountManager.login(login,pass);setLoading(false);
     if(!acc){showErr('Identifiants incorrects ou compte désactivé.');return}
