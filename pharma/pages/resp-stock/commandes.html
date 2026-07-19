@@ -18,6 +18,14 @@
 
       <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(4,1fr)"></div>
       <div class="card"><div class="card-header"><span class="card-title">Toutes les commandes</span><button class="btn btn-primary btn-sm" onclick="Modal.open('mCmd')">➕ Nouvelle commande</button></div><div class="card-body" style="padding:0"><table><thead><tr><th>Réf</th><th>Fournisseur</th><th>Date</th><th>Livraison prévue</th><th>Auto</th><th>Statut</th><th></th></tr></thead><tbody id="b"></tbody></table></div></div>
+<div class="modal-overlay" id="mCmd"><div class="modal">
+  <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff"><span class="modal-title" style="color:#fff">➕ Nouvelle commande</span><button class="modal-close" style="color:#fff">✕</button></div>
+  <div class="modal-body">
+    <div class="form-group"><label class="form-label">Fournisseur *</label><select class="form-control" id="cF"></select></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Date livraison prévue</label><input type="date" class="form-control" id="cDL"></div><div class="form-group"><label class="form-label">Notes</label><input class="form-control" id="cN" placeholder="Optionnel"></div></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-outline modal-close">Annuler</button><button class="btn btn-primary" onclick="creerCmd()">✅ Créer</button></div>
+</div></div>
     </main>
   </div>
 </div>
@@ -49,15 +57,6 @@ load();
 Auth.requireRole('resp_stock');
 const user = Auth.getUser();
 Sidebar.render('sidebar');
-
-<div class="modal-overlay" id="mCmd"><div class="modal">
-  <div class="modal-header" style="background:linear-gradient(135deg,#042a1a,#0a7a4a);color:#fff"><span class="modal-title" style="color:#fff">➕ Nouvelle commande</span><button class="modal-close" style="color:#fff">✕</button></div>
-  <div class="modal-body">
-    <div class="form-group"><label class="form-label">Fournisseur *</label><select class="form-control" id="cF"></select></div>
-    <div class="form-row"><div class="form-group"><label class="form-label">Date livraison prévue</label><input type="date" class="form-control" id="cDL"></div><div class="form-group"><label class="form-label">Notes</label><input class="form-control" id="cN" placeholder="Optionnel"></div></div>
-  </div>
-  <div class="modal-footer"><button class="btn btn-outline modal-close">Annuler</button><button class="btn btn-primary" onclick="creerCmd()">✅ Créer</button></div>
-</div></div>
 </script>
 </body>
 </html>
