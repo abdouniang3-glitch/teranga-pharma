@@ -137,7 +137,14 @@ function load(){
 
   const meds=DB.get('medicaments');
   const ordonn=DB.get('ordonnances').filter(o=>o.statut==='en_attente');
-  document.getElementById('vMed').innerHTML=meds.map(m=>`<option value="${m.id}" data-ord="${m.sur_ordonnance?1:0}">${m.nom_commercial} ${m.sur_ordonnance?'(Ord.)':''} — Stock: ${getStockTotal(m.id)}</option>`).join('');
+  (async () => {
+    let opts = meds;
+    if (typeof API !== 'undefined' && API.isConnected()) {
+      const cloudMeds = await CloudRef.medicaments();
+      if (cloudMeds && cloudMeds.length) opts = cloudMeds;
+    }
+    document.getElementById('vMed').innerHTML=opts.map(m=>`<option value="${m.id}" data-ord="${m.sur_ordonnance?1:0}">${m.nom_commercial} ${m.sur_ordonnance?'(Ord.)':''} — Stock: ${getStockTotal(m.id)}</option>`).join('');
+  })();
   document.getElementById('vClient').innerHTML='<option value="">— Passage —</option>'+clients.map(c=>`<option value="${c.id}">${c.prenom} ${c.nom}</option>`).join('');
   document.getElementById('vOrd').innerHTML='<option value="">— Aucune —</option>'+ordonn.map(o=>`<option value="${o.id}">${o.ref_ordonnance} — ${clients.find(c=>c.id===o.client_id)?.nom||'?'}</option>`).join('');
 }
@@ -232,6 +239,19 @@ function finaliserVente(){
     DB.push('lignes_vente',{vente_id:vente.id,medicament_id:p.medId,lot_id:p.lotId,quantite:p.qte,prix_unitaire:p.pu,montant_ligne:p.montant});
     DB.update('lots',p.lotId,{quantite_disponible:DB.find('lots',p.lotId).quantite_disponible-p.qte});
   });
+  const isUUID = v => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+  if (typeof API !== 'undefined' && API.isConnected()) {
+    const lignesCloud = panier.filter(p => isUUID(p.medId)).map(p => ({medicament_id:p.medId, quantite:p.qte, prix_unitaire:p.pu}));
+    if (lignesCloud.length) {
+      API.ventes.create({
+        client_id: isUUID(clientId) ? clientId : null,
+        ordonnance_id: isUUID(ordId) ? ordId : null,
+        mode_paiement: mode,
+        montant_remise: remise,
+        lignes: lignesCloud
+      }).catch(e => console.warn('[VENTE→CLOUD] échec:', e.message));
+    }
+  }
   if(ordId) DB.update('ordonnances',ordId,{statut:'delivree',date_delivrance:new Date().toISOString().split('T')[0],nb_delivrances:(DB.find('ordonnances',ordId)?.nb_delivrances||0)+1});
   DB.push('audit_logs',{user_id:user.id,action:'vente',entite:'ventes',entite_id:vente.id,details:`Vente ${ref} — ${Fmt.currency(total)} — ${mode}`});
   checkStockAlertes();
