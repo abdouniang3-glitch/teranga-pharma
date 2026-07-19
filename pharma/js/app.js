@@ -62,7 +62,14 @@ const DB = {
     const a=this.get(k);if(!item.id)item.id='ID'+Date.now()+Math.random().toString(36).slice(2,5);if(!item.created_at)item.created_at=new Date().toISOString();a.push(item);this.set(k,a);
     const ep = DB_CLOUD_MAP[k];
     if (ep && typeof API !== 'undefined' && API.isConnected()) {
-      API[ep].create(item).catch(e => console.warn('[DB→CLOUD] échec push', k, e.message));
+      const isUUID = v => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+      const cloudItem = {};
+      for (const key in item) {
+        const v = item[key];
+        if (key.endsWith('_id') && v && !isUUID(v)) continue; // skip IDs locaux non-UUID
+        cloudItem[key] = v;
+      }
+      API[ep].create(cloudItem).catch(e => console.warn('[DB→CLOUD] échec push', k, e.message));
     }
     return item;
   },
