@@ -233,7 +233,8 @@ const CloudRef = {
     if (!API.isConnected()) return null;
     if (this._cache.medicaments) return this._cache.medicaments;
     try {
-      const data = await API.medicaments.getAll();
+      const res = await API.medicaments.getAll();
+      const data = Array.isArray(res) ? res : (res?.medicaments || []);
       this._cache.medicaments = data;
       return data;
     } catch(e) {
