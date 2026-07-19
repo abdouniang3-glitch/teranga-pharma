@@ -242,5 +242,18 @@ const CloudRef = {
       return null;
     }
   },
+  async clients() {
+    if (!API.isConnected()) return null;
+    if (this._cache.clients) return this._cache.clients;
+    try {
+      const res = await API.clients.getAll();
+      const data = Array.isArray(res) ? res : (res?.clients || []);
+      this._cache.clients = data;
+      return data;
+    } catch(e) {
+      console.warn('[CloudRef] échec chargement clients:', e.message);
+      return null;
+    }
+  },
   clearCache() { this._cache = {}; }
 };

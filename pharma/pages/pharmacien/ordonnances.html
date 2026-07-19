@@ -162,7 +162,14 @@ function load() {
   }).join('') || '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted)">Aucune ordonnance</td></tr>';
 
   // Pré-remplir selects modal
-  document.getElementById('oClient').innerHTML = clients.map(c => `<option value="${c.id}">${c.prenom} ${c.nom}</option>`).join('');
+  (async () => {
+    let opts = clients;
+    if (typeof API !== 'undefined' && API.isConnected()) {
+      const cloudClients = await CloudRef.clients();
+      if (cloudClients && cloudClients.length) opts = cloudClients;
+    }
+    document.getElementById('oClient').innerHTML = opts.map(c => `<option value="${c.id}">${c.prenom} ${c.nom}</option>`).join('');
+  })();
   const today = new Date().toISOString().split('T')[0];
   if (!document.getElementById('oDatePrescr').value) document.getElementById('oDatePrescr').value = today;
 
