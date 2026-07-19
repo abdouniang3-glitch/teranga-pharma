@@ -225,3 +225,21 @@ const API = {
 
 // Initialiser au chargement
 API.init();
+
+// ── Données de référence cloud (pour listes déroulantes avec vrais UUID) ──
+const CloudRef = {
+  _cache: {},
+  async medicaments() {
+    if (!API.isConnected()) return null;
+    if (this._cache.medicaments) return this._cache.medicaments;
+    try {
+      const data = await API.medicaments.getAll();
+      this._cache.medicaments = data;
+      return data;
+    } catch(e) {
+      console.warn('[CloudRef] échec chargement médicaments:', e.message);
+      return null;
+    }
+  },
+  clearCache() { this._cache = {}; }
+};

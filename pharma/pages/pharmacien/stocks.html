@@ -161,7 +161,14 @@ function load() {
     </tr>`;
   }).join('')||'<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text-muted)">Aucun lot</td></tr>';
 
-  document.getElementById('lMed').innerHTML = meds.map(m=>`<option value="${m.id}">${m.nom_commercial}</option>`).join('');
+  (async () => {
+    let options = meds;
+    if (typeof API !== 'undefined' && API.isConnected()) {
+      const cloudMeds = await CloudRef.medicaments();
+      if (cloudMeds && cloudMeds.length) options = cloudMeds;
+    }
+    document.getElementById('lMed').innerHTML = options.map(m=>`<option value="${m.id}">${m.nom_commercial}</option>`).join('');
+  })();
 }
 
 document.getElementById('lPerem').addEventListener('change', function(){
