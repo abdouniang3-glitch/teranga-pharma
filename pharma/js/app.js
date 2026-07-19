@@ -50,11 +50,30 @@ const Auth = {
 };
 
 /* ── DB ── */
+const DB_CLOUD_MAP = {
+  medicaments: 'medicaments', lots: 'lots', ventes: 'ventes',
+  clients: 'clients', ordonnances: 'ordonnances',
+};
+
 const DB = {
   get(k)       { try{return JSON.parse(localStorage.getItem('pharma_'+k)||'[]')}catch{return[]} },
   set(k,v)     { localStorage.setItem('pharma_'+k,JSON.stringify(v)) },
-  push(k,item) { const a=this.get(k);if(!item.id)item.id='ID'+Date.now()+Math.random().toString(36).slice(2,5);if(!item.created_at)item.created_at=new Date().toISOString();a.push(item);this.set(k,a);return item },
-  update(k,id,upd){ const a=this.get(k),i=a.findIndex(x=>x.id===id);if(i!==-1){a[i]={...a[i],...upd};this.set(k,a);return a[i]}return null },
+  push(k,item) {
+    const a=this.get(k);if(!item.id)item.id='ID'+Date.now()+Math.random().toString(36).slice(2,5);if(!item.created_at)item.created_at=new Date().toISOString();a.push(item);this.set(k,a);
+    const ep = DB_CLOUD_MAP[k];
+    if (ep && typeof API !== 'undefined' && API.isConnected()) {
+      API[ep].create(item).catch(e => console.warn('[DB→CLOUD] échec push', k, e.message));
+    }
+    return item;
+  },
+  update(k,id,upd){
+    const a=this.get(k),i=a.findIndex(x=>x.id===id);if(i===-1)return null;a[i]={...a[i],...upd};this.set(k,a);
+    const ep = DB_CLOUD_MAP[k];
+    if (ep && typeof API !== 'undefined' && API.isConnected() && API[ep].update) {
+      API[ep].update(id, upd).catch(e => console.warn('[DB→CLOUD] échec update', k, e.message));
+    }
+    return a[i];
+  },
   delete(k,id) { this.set(k,this.get(k).filter(x=>x.id!==id)) },
   find(k,id)   { return this.get(k).find(x=>x.id===id)||null },
 
