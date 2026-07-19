@@ -69,6 +69,9 @@ const DB = {
         if (key.endsWith('_id') && v && !isUUID(v)) continue; // skip IDs locaux non-UUID
         cloudItem[key] = v;
       }
+      if (k === 'lots' && cloudItem.quantite_initiale !== undefined) {
+        cloudItem.quantite = cloudItem.quantite_initiale;
+      }
       API[ep].create(cloudItem).catch(e => console.warn('[DB→CLOUD] échec push', k, e.message));
     }
     return item;
