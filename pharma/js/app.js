@@ -56,7 +56,7 @@ const Auth = {
 
 /* ── DB ── */
 const DB_CLOUD_MAP = {
-  medicaments: 'medicaments', lots: 'lots', ventes: 'ventes',
+  medicaments: 'medicaments', lots: 'lots',
   clients: 'clients', ordonnances: 'ordonnances',
 };
 
