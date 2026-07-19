@@ -33,7 +33,12 @@ AccountManager.init();
 /* ── Auth ── */
 const Auth = {
   getUser()  { try{return JSON.parse(sessionStorage.getItem('pharma_user')||'null')}catch{return null} },
-  setUser(u) { sessionStorage.setItem('pharma_user',JSON.stringify(u)) },
+  setUser(u) {
+    sessionStorage.setItem('pharma_user',JSON.stringify(u));
+    if (typeof API !== 'undefined' && API.isConnected()) {
+      API.sync.pull().catch(e => console.warn('[AUTO-SYNC] échec:', e.message));
+    }
+  },
   logout() {
     sessionStorage.removeItem('pharma_user');
     // Structure: .../pages/[role]/fichier.html → 2 niveaux au-dessus de pages/ → ../../index.html
