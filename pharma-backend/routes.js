@@ -299,6 +299,23 @@ router.post('/ventes', requireRole('pharmacien','assistant','preparateur'), asyn
 // ══════════════════════════════════════════════════════════════
 router.use('/clients', requireAuth, requirePharmacie);
 
+router.get('/fournisseurs', async (req, res) => {
+  const { rows } = await db.query('SELECT * FROM fournisseurs WHERE pharmacie_id=$1 ORDER BY raison_sociale', [pid(req)]);
+  ok(res, rows);
+});
+
+router.post('/fournisseurs', requireRole('pharmacien','resp_stock'), async (req, res) => {
+  const { raison_sociale, telephone, email, adresse, numero_agrement, condition } = req.body;
+  if (!raison_sociale) return err(res, 'Raison sociale requise');
+  try {
+    const { rows } = await db.query(`
+      INSERT INTO fournisseurs (pharmacie_id, raison_sociale, telephone, email, adresse, numero_agrement, condition)
+      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [pid(req), raison_sociale, telephone, email, adresse, numero_agrement, condition]);
+    ok(res, rows[0], 201);
+  } catch (e) { err(res, e.message, 500); }
+});
+
 router.get('/clients', async (req, res) => {
   const { search, est_habitue, with_credit } = req.query;
   let where = ['pharmacie_id = $1'];
