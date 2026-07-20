@@ -299,6 +299,7 @@ router.post('/ventes', requireRole('pharmacien','assistant','preparateur'), asyn
 // ══════════════════════════════════════════════════════════════
 router.use('/clients', requireAuth, requirePharmacie);
 
+router.use('/fournisseurs', requireAuth, requirePharmacie);
 router.get('/fournisseurs', async (req, res) => {
   const { rows } = await db.query('SELECT * FROM fournisseurs WHERE pharmacie_id=$1 ORDER BY raison_sociale', [pid(req)]);
   ok(res, rows);
