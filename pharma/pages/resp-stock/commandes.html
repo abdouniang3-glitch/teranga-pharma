@@ -38,7 +38,14 @@ function load(){
     <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-label">Livrées</div><div class="stat-value">${cmds.filter(c=>c.statut==='livree').length}</div></div></div>
     <div class="stat-card"><div class="stat-icon purple">🤖</div><div><div class="stat-label">Auto-générées</div><div class="stat-value">${cmds.filter(c=>c.generee_auto).length}</div></div></div>`;
   document.getElementById('b').innerHTML=cmds.slice().reverse().map(c=>{const f=fours.find(x=>x.id===c.fournisseur_id);return`<tr><td><code style="font-size:11px">${c.ref_commande}</code></td><td style="font-size:12.5px">${f?f.raison_sociale:'—'}</td><td style="font-size:12px">${Fmt.date(c.date_commande)}</td><td style="font-size:12px">${Fmt.date(c.date_livraison_prevue)}</td><td>${c.generee_auto?'<span class="badge badge-primary" style="font-size:10px">🤖 Auto</span>':'—'}</td><td>${Fmt.statutCommande(c.statut)}</td><td>${c.statut==='envoyee'?`<button class="btn btn-success btn-xs" onclick="livrer('${c.id}')">📦 Livré</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-muted)">Aucune commande</td></tr>';
-  document.getElementById('cF').innerHTML=fours.map(f=>`<option value="${f.id}">${f.raison_sociale}</option>`).join('');
+  (async () => {
+    let opts = fours;
+    if (typeof API !== 'undefined' && API.isConnected()) {
+      const cloudFours = await CloudRef.fournisseurs();
+      if (cloudFours && cloudFours.length) opts = cloudFours;
+    }
+    document.getElementById('cF').innerHTML=opts.map(f=>`<option value="${f.id}">${f.raison_sociale}</option>`).join('');
+  })();
 }
 function creerCmd(){
   const fId=document.getElementById('cF').value;

@@ -255,5 +255,18 @@ const CloudRef = {
       return null;
     }
   },
+  async fournisseurs() {
+    if (!API.isConnected()) return null;
+    if (this._cache.fournisseurs) return this._cache.fournisseurs;
+    try {
+      const res = await fetch(API.BASE_URL + '/fournisseurs', {headers: {'Authorization': 'Bearer ' + API.accessToken}}).then(r => r.json());
+      const data = Array.isArray(res.data) ? res.data : (res.data?.fournisseurs || []);
+      this._cache.fournisseurs = data;
+      return data;
+    } catch(e) {
+      console.warn('[CloudRef] échec chargement fournisseurs:', e.message);
+      return null;
+    }
+  },
   clearCache() { this._cache = {}; }
 };

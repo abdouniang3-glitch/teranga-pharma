@@ -4,9 +4,9 @@
 //  L'application fonctionne SANS connexion internet
 // ============================================================
 
-const CACHE_NAME    = 'teranga-pharma-v9';
-const CACHE_STATIC  = 'teranga-static-v9';
-const CACHE_DYNAMIC = 'teranga-dynamic-v9';
+const CACHE_NAME    = 'teranga-pharma-v10';
+const CACHE_STATIC  = 'teranga-static-v10';
+const CACHE_DYNAMIC = 'teranga-dynamic-v10';
 
 // Fichiers à mettre en cache immédiatement (app shell)
 const PRECACHE = [
